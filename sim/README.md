@@ -13,15 +13,26 @@ sim/
 ├── README.md            (this file)
 ├── extract_path.py      (SWF XML -> per-track path arrays)
 ├── visualize_path.py    (matplotlib plot of an extracted path)
-└── paths/
-    ├── track_N.npy      (shape (frames, 2), dtype float64, stage pixels)
-    ├── track_N.json     (same data + metadata)
-    └── track_N.png      (sanity-check plot)
+├── smoke_test.py        (CLI sanity check; one round of track 3)
+├── play.py              (interactive playtest entry point)
+├── render.py            (pygame view onto a BloonsSim)
+├── paths/
+│   ├── track_N.npy      (shape (frames, 2), dtype float64, stage pixels)
+│   ├── track_N.json     (same data + metadata)
+│   └── track_N.png      (sanity-check plot)
+└── btd/                 (sim core; nothing here imports pygame)
+    ├── __init__.py
+    ├── constants.py     (mirrors BloonsTD.as static fields)
+    ├── bloon.py
+    ├── tower.py
+    ├── bullet.py
+    └── game.py          (BloonsSim — orchestrator)
 ```
 
-The simulator core will land here as additional modules
-(`bloon.py`, `tower.py`, `bullet.py`, `game.py`, `env.py`). Game balance
-constants will live in a single `constants.py` mirroring `BloonsTD.as`.
+`btd/` is pure logic and depends only on numpy. `render.py` and `play.py`
+add the pygame layer for visualization and interactive playtest. The
+Gymnasium env wrapper, when it lands, will sit alongside `play.py` and
+share the same `BloonsSim` instance.
 
 ## Data pipeline
 
@@ -146,6 +157,10 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       escape damage, round end with grace + emergency timeout.
 - [x] `smoke_test.py` runs round 1 of track 3 end-to-end (14 reds vs 2 darts;
       14 pops, 0 escaped, +$114, finishes at frame ~737).
+- [x] Pygame renderer + interactive playtest (`play.py`): place dart towers
+      with the mouse, SPACE starts the next round, ESC deselects, R resets,
+      Q quits. Placeholder graphics — colored circles for bloons sized by
+      rank, squares for towers, polyline for path.
 - [ ] Tower types beyond dart: tack, ice, bomb, boomerang, spikeopult, super,
       beacon, monkey storm; placed items (spikes, glue, pineapple).
 - [ ] Bloon immunities and special hits (black/white/lead/frozen, MOAB/BFB
