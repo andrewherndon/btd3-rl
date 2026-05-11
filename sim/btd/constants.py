@@ -90,7 +90,21 @@ TOWER_STATS: Final = {
     "boomerang": dict(attackRate=50, attackRadius=130, shootPower=0.0, pierceMax=2,
                       cost=515, name="Boomerang",
                       icebreak=False, leadbreak=False, is_spread=False),
+    # Beacon. Doesn't fire — buffs nearby towers' range. The drums upgrade
+    # (deferred) adds a rate buff. is_attacker=False short-circuits the fire
+    # path; the beacon still "ticks" so debug HUDs read normally.
+    "beacon": dict(attackRate=60, attackRadius=120, shootPower=0.0, pierceMax=0,
+                   cost=1000, name="Monkey Beacon",
+                   icebreak=False, leadbreak=False, is_spread=False,
+                   is_attacker=False),
 }
+
+# Beacon buff multipliers. AS multiplies `arsq` (radius²) by 1.2, NOT radius
+# itself — so the effective range increase is sqrt(1.2) ≈ 1.095x. The AS
+# CalcRadius uses 1.2 on the visual radius too, which is inconsistent in the
+# original game; we mirror the targeting math exactly.
+BEACON_RANGE_FACTOR: Final = 1.2
+BEACON_RATE_FACTOR: Final = 0.85
 
 # Bullet stats, from Bullet.Init. lifespan in frames. radius is sim-only
 # (placeholder for hitTestObject -> circle replacement). `explosion_radius`

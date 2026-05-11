@@ -21,7 +21,12 @@ class Tower:
     icebreak: bool = False     # bullets can pop frozen bloons
     leadbreak: bool = False    # bullets can pop lead bloons
     is_spread: bool = False    # fires N shards in a fan (tack, ice); no aimed bullet
+    is_attacker: bool = True   # False for beacons — skip fire logic, still tick counter
     freeze_len: int = 0        # frames a frozen bloon stays frozen (ice only)
+    # Set by the beacon-buff refresh each frame. Read by _acquire_target /
+    # _tick_towers when deciding effective range / rate.
+    beacon_radius_active: bool = False
+    beacon_rate_active: bool = False
     pop_count: int = 0
     time_since_last_shot: int = 0
     # Targeting mode. AS only ever uses "first"; "last" is supported for
@@ -44,5 +49,6 @@ class Tower:
             icebreak=stats.get("icebreak", False),
             leadbreak=stats.get("leadbreak", False),
             is_spread=stats.get("is_spread", False),
+            is_attacker=stats.get("is_attacker", True),
             freeze_len=stats.get("freeze_len", 0),
         )

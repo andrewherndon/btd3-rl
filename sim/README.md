@@ -193,7 +193,15 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       arc's local -y forward axis aligns with the shot direction; each tick
       the bullet position = `anchor + R(angle) @ arc[t]`. Pierce 2 means the
       boomerang gets up to 2 hits across its full out-and-back path.
-- [ ] Tower types remaining: beacon (buffs nearby towers).
+- [x] Monkey Beacon: doesn't fire (`is_attacker=False`); refreshed every
+      frame via `_refresh_beacon_buffs`. Towers within radius get
+      `beacon_radius_active=True` and `_acquire_target` multiplies `arsq`
+      by `BEACON_RANGE_FACTOR` (1.2). Mirroring AS: this is arsq scaling,
+      not radius, so effective range gain is `sqrt(1.2) ≈ 1.095x`. Renderer
+      draws a yellow halo on buffed towers and the selected beacon shows
+      its buff radius. The `beacon_rate_active` flag is wired but not yet
+      flipped (depends on the drums upgrade, deferred to upgrade system).
+- [ ] All listed tower types are now implemented.
 - [ ] Out-of-scope for the first RL iteration (no mid-round actions): placed
       items (spikes, glue, pineapple), monkey storm consumable. Sim API
       should leave room to add these later.

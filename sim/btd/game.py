@@ -15,6 +15,8 @@ from .bloon import Bloon
 from .bullet import Bullet
 from .rounds import build_levels
 from .constants import (
+    BEACON_RANGE_FACTOR,
+    BEACON_RATE_FACTOR,
     BLOON_CHILDREN,
     BLOON_ESCAPE_DAMAGE,
     BLOON_HITS,
@@ -297,9 +299,19 @@ class BloonsSim:
     # -- tower / bullet / bloon ticks -----------------------------------------
 
     def _tick_towers(self) -> None:
+        # Recompute beacon buffs from scratch every frame. O(beacons × non-
+        # beacon towers); cheap in practice. Matches AS gameplay closely and
+        # avoids the AS quirk where selling one beacon clears flags that
+        # another beacon would re-apply only on its next refresh cycle.
+        self._refresh_beacon_buffs()
         for t in self.towers:
             t.time_since_last_shot += 1
-            if t.time_since_last_shot <= t.attack_rate:
+            if not t.is_attacker:
+                continue
+            effective_rate = t.attack_rate
+            if t.beacon_rate_active:
+                effective_rate = max(1, math.ceil(effective_rate * BEACON_RATE_FACTOR))
+            if t.time_since_last_shot <= effective_rate:
                 continue
             target = self._acquire_target(t)
             if target is None:
@@ -313,12 +325,38 @@ class BloonsSim:
             else:
                 self._shoot(t, target)
 
+    def _refresh_beacon_buffs(self) -> None:
+        # Wipe all flags, then re-apply from each beacon. Non-beacons don't
+        # propagate buffs; beacons never buff themselves (AS doBeaconUpdate
+        # has `if(_loc2_.type != "beacon")`).
+        for t in self.towers:
+            if t.type == "beacon":
+                continue
+            t.beacon_radius_active = False
+            t.beacon_rate_active = False
+        for beacon in self.towers:
+            if beacon.type != "beacon":
+                continue
+            ar_sq = beacon.attack_radius * beacon.attack_radius
+            for t in self.towers:
+                if t.type == "beacon":
+                    continue
+                dx = t.x - beacon.x
+                dy = t.y - beacon.y
+                if dx * dx + dy * dy < ar_sq:
+                    t.beacon_radius_active = True
+                    # Drums upgrade (deferred): also flip beacon_rate_active.
+
     def _acquire_target(self, t: Tower) -> Optional[Bloon]:
         # AS GetTarget: scans bloon list, dist² < range², picks by progress.
         # AImode "first" = highest progress; "last" = lowest progress.
         # Non-icebreak towers skip frozen bloons (AS GetTarget: `if(!icebreak)
         # if(_loc4_.frozen) continue`).
+        # Beacon range buff multiplies arsq by 1.2 (NOT radius — AS quirk;
+        # effective range gain is sqrt(1.2) ≈ 1.095x).
         ar_sq = t.attack_radius * t.attack_radius
+        if t.beacon_radius_active:
+            ar_sq *= BEACON_RANGE_FACTOR
         best: Optional[Bloon] = None
         best_progress = -1.0 if t.ai_mode == "first" else 2.0
         for b in self.bloons:

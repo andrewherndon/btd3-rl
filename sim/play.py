@@ -10,6 +10,7 @@ Controls:
   5            select super       ($4000)
   6            select ice         ($425)
   7            select boomerang   ($515)
+  8            select beacon      ($1000)
   Left click   place selected tower (or select existing)
   SPACE        start next round
   ESC          deselect tower-type
@@ -81,6 +82,9 @@ def main() -> None:
                     view.selected_tower_id = None
                 elif event.key == pygame.K_7:
                     view.selected_tower_type = "boomerang"
+                    view.selected_tower_id = None
+                elif event.key == pygame.K_8:
+                    view.selected_tower_type = "beacon"
                     view.selected_tower_id = None
                 # --- debug controls ---
                 elif event.key == pygame.K_p:

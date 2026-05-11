@@ -12,9 +12,11 @@ from __future__ import annotations
 
 from typing import Optional
 
+import math
+
 import pygame
 
-from btd.constants import BLOON_RADIUS, STAGE_H, STAGE_W
+from btd.constants import BEACON_RANGE_FACTOR, BLOON_RADIUS, STAGE_H, STAGE_W
 from btd.game import BloonsSim
 
 
@@ -127,8 +129,21 @@ class PygameRenderer:
             rect = pygame.Rect(cx - size // 2, cy - size // 2, size, size)
             pygame.draw.rect(self.screen, color, rect)
             pygame.draw.rect(self.screen, (30, 30, 30), rect, 1)
+            # Mark beacon-buffed towers with a soft yellow halo so the buff is
+            # visible at a glance.
+            if t.beacon_radius_active or t.beacon_rate_active:
+                pygame.draw.rect(
+                    self.screen, (255, 220, 80),
+                    rect.inflate(int(6 * self.scale), int(6 * self.scale)), 1,
+                )
             if self.selected_tower_id == t.id:
-                self._draw_range_ring(cx, cy, t.attack_radius)
+                self._draw_range_ring(cx, cy, self._effective_range(t))
+
+    def _effective_range(self, tower) -> float:
+        r = tower.attack_radius
+        if tower.beacon_radius_active:
+            r *= math.sqrt(BEACON_RANGE_FACTOR)
+        return r
 
     def _draw_range_ring(self, cx: int, cy: int, radius_stage: float) -> None:
         r = int(radius_stage * self.scale)
@@ -210,6 +225,7 @@ class PygameRenderer:
             ("[5] super     $4000", self.font),
             ("[6] ice        $425", self.font),
             ("[7] boomerang  $515", self.font),
+            ("[8] beacon    $1000", self.font),
             ("[ESC] deselect", self.font),
             ("[Q]   quit  [R] reset", self.font),
             ("", self.font),
