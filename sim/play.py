@@ -13,6 +13,14 @@ Controls:
   ESC          deselect tower-type
   R            reset game
   Q            quit
+
+Debug:
+  P            pause / resume
+  M            +$1000
+  L            +50 lives
+  ]            next round +1   (between rounds only)
+  [            next round -1   (between rounds only)
+  X            clear all bloons (no escape damage)
 """
 
 from __future__ import annotations
@@ -66,6 +74,19 @@ def main() -> None:
                 elif event.key == pygame.K_5:
                     view.selected_tower_type = "super"
                     view.selected_tower_id = None
+                # --- debug controls ---
+                elif event.key == pygame.K_p:
+                    view.paused = not view.paused
+                elif event.key == pygame.K_m:
+                    sim.debug_add_money(1000)
+                elif event.key == pygame.K_l:
+                    sim.debug_add_lives(50)
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    sim.debug_set_round(sim.round + 2)  # +1 over the "next" round
+                elif event.key == pygame.K_LEFTBRACKET:
+                    sim.debug_set_round(sim.round)  # one fewer than the current "next"
+                elif event.key == pygame.K_x:
+                    sim.debug_clear_bloons()
                 elif event.key == pygame.K_SPACE:
                     sim.start_round()
                 elif event.key == pygame.K_r:
@@ -88,7 +109,8 @@ def main() -> None:
                     # Select an existing tower by proximity.
                     view.selected_tower_id = _hit_tower(sim, stage_x, stage_y)
 
-        sim.step()
+        if not view.paused:
+            sim.step()
         view.draw()
         view.tick(args.fps)
 

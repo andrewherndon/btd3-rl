@@ -83,6 +83,8 @@ class PygameRenderer:
         self.selected_tower_type: Optional[str] = None
         self.selected_tower_id: Optional[int] = None
         self.mouse_pos: tuple[int, int] = (0, 0)
+        # Interactive playtest state; driven by play.py.
+        self.paused: bool = False
 
     # -- coordinate transforms ------------------------------------------------
 
@@ -177,8 +179,14 @@ class PygameRenderer:
         pygame.draw.rect(self.screen, HUD_BG, hud_rect)
         pygame.draw.rect(self.screen, HUD_BORDER, hud_rect, 2)
         s = self.sim
-        lines = [
-            (f"Round {s.round}" + (" *" if s.in_round else ""), self.big_font),
+        next_round = s.round + 1 if not s.in_round else s.round
+        round_label = f"Round {s.round}" + (" *" if s.in_round else "")
+        lines: list[tuple[str, pygame.font.Font]] = [
+            (round_label, self.big_font),
+        ]
+        if self.paused:
+            lines.append(("[PAUSED]", self.big_font))
+        lines += [
             (f"Money:  ${s.money}", self.font),
             (f"Lives:  {s.lives}", self.font),
             (f"Frame:  {s.frame_count}", self.font),
@@ -188,15 +196,25 @@ class PygameRenderer:
             (f"Bullets: {sum(not b.is_dead for b in s.bullets)}", self.font),
             ("", self.font),
             (f"Sel:     {self.selected_tower_type or '-'}", self.font),
+            (f"Next rd: {next_round}", self.font),
             ("", self.font),
+            ("--- play ---", self.font),
             ("[SPACE] start round", self.font),
             ("[1] dart       $250", self.font),
             ("[2] bomb       $725", self.font),
             ("[3] tack       $360", self.font),
             ("[4] spikeopult $600", self.font),
             ("[5] super     $4000", self.font),
-            ("[ESC]   deselect", self.font),
-            ("[Q]     quit", self.font),
+            ("[ESC] deselect", self.font),
+            ("[Q]   quit  [R] reset", self.font),
+            ("", self.font),
+            ("--- debug ---", self.font),
+            ("[P]   pause/resume", self.font),
+            ("[M]   +$1000", self.font),
+            ("[L]   +50 lives", self.font),
+            ("[]]   next round +1", self.font),
+            ("[[]   next round -1", self.font),
+            ("[X]   clear bloons", self.font),
         ]
         if s.game_over:
             lines.insert(1, ("WIN" if s.won else "GAME OVER", self.big_font))

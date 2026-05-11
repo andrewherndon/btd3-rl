@@ -176,6 +176,30 @@ class BloonsSim:
         self._cleanup()
         self._tick_round_end()
 
+    # -- debug helpers (interactive playtest, not gameplay API) ---------------
+
+    def debug_add_money(self, amount: int) -> None:
+        self.money = max(0, self.money + amount)
+
+    def debug_add_lives(self, amount: int) -> None:
+        self.lives = max(0, self.lives + amount)
+        if self.lives > 0 and self.game_over and not self.won:
+            self.game_over = False  # rescuable from a loss
+
+    def debug_set_round(self, round_num: int) -> bool:
+        """Set the *upcoming* round (i.e. what `start_round` will play next).
+        Refuses if a round is in progress. Returns True on success."""
+        if self.in_round:
+            return False
+        self.round = max(0, min(round_num - 1, self.max_round))
+        return True
+
+    def debug_clear_bloons(self) -> None:
+        """Wipe all bloons without awarding money, spawning children, or
+        leaking lives. Lets you abort a bad round mid-stream."""
+        for b in self.bloons:
+            b.popped = True
+
     def observe(self) -> dict:
         """Tiny human-readable snapshot. The Gym wrapper will produce a
         structured array form for training."""
