@@ -13,6 +13,7 @@ import numpy as np
 
 from .bloon import Bloon
 from .bullet import Bullet
+from .rounds import build_levels
 from .constants import (
     BLOON_CHILDREN,
     BLOON_ESCAPE_DAMAGE,
@@ -35,6 +36,9 @@ class SimConfig:
     track: int = 3
     difficulty: str = "easy"          # "easy" | "medium" | "hard"
     seed: int = 0
+    # If False (default, matches the shipped game), the game ends after round 50.
+    # If True, rounds 51+ (procedurally generated) are also playable.
+    freeplay: bool = False
     paths_dir: Path = Path(__file__).resolve().parents[1] / "paths"
 
 
@@ -43,10 +47,22 @@ class BloonsSim:
 
     def __init__(self, config: Optional[SimConfig] = None) -> None:
         self.config = config or SimConfig()
-        self.rng = np.random.default_rng(self.config.seed)
+        # Spawn independent RNG sub-streams from the seed. Each "consumer"
+        # (main game RNG, level generator, ...) gets its own. This way adding
+        # new RNG-consuming features later does not shift the main stream.
+        seeds = np.random.SeedSequence(self.config.seed).spawn(2)
+        self.rng = np.random.default_rng(seeds[0])
+        rounds_rng = np.random.default_rng(seeds[1])
 
         # Path data, keyed by branch. Track 3 has one branch.
         self.paths: dict[int, np.ndarray] = self._load_paths(self.config.track)
+
+        # All rounds, generated once. Order of the embedded list IS the
+        # spawn order for that round (the AS BuildLevels appends batches).
+        self.round_table: dict[int, list[int]] = build_levels(
+            rounds_rng, self.config.difficulty
+        )
+        self.max_round: int = max(self.round_table.keys())
 
         # Money / lives / round.
         self.money: int = STARTING_MONEY
@@ -183,14 +199,9 @@ class BloonsSim:
         return int(round((base_cost * self.cost_mult) / 5.0)) * 5
 
     def _round_data(self, round_num: int) -> list[int]:
-        # Just round 1 for now. Real BuildLevels port is a separate task.
-        if round_num == 1:
-            return [1] * 14
-        if round_num == 2:
-            return [1] * 30
-        if round_num == 3:
-            return [1] * 10 + [2] * 4 + [1] * 5 + [2] * 4
-        return [1] * 20  # placeholder for further rounds
+        # Return a copy so callers (the spawn queue) can pop without mutating
+        # the source-of-truth table.
+        return list(self.round_table.get(round_num, []))
 
     def _round_interval(self, round_num: int) -> int:
         # BloonsTD.StartLevel: 20 - round, clamped via ceil(7 - round/20).
@@ -426,7 +437,8 @@ class BloonsSim:
         # Clear remaining bullets (AS EndLevel: ClearBullets, ClearBalloons).
         for b in self.bullets:
             b.is_dead = True
-        if self.round >= 50:
+        win_round = self.max_round if self.config.freeplay else 50
+        if self.round >= win_round:
             self.game_over = True
             self.won = True
             return

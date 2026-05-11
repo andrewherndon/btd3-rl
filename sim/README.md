@@ -167,7 +167,9 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       multi-hit, ceramic).
 - [ ] Tower upgrades (4 per type, the `GetUpgrade` switch).
 - [ ] Beacon range/rate buffs.
-- [ ] Full round table (`BuildLevels` port; rounds 51+ procedural generator).
+- [x] Full round table (`btd/rounds.py`): hardcoded rounds 1-50 from
+      `BloonsTD.BuildLevels`, procedural rounds 51-149. `SimConfig.freeplay`
+      gates play past round 50.
 - [ ] Per-rank bloon hitbox radii from extracted `inner` bounds (currently
       placeholders in `constants.BLOON_RADIUS`).
 - [ ] Tower placement legality from `Pathhit` rectangles.
