@@ -23,9 +23,11 @@ class Bloon:
     popped: bool = False
     escaped: bool = False
     hit_this_frame: bool = False    # bloon can absorb at most one bullet per tick (Bloon.Update returns after first hit)
-    # Freeze state (deferred — populated when ice tower is implemented).
+    # Freeze state. `freeze_duration` is set per-freeze (min of the freezer's
+    # freeze_len and the 100-frame AS hard cap).
     frozen: bool = False
     time_frozen: int = 0
+    freeze_duration: int = 0
 
     @property
     def alive(self) -> bool:

@@ -21,6 +21,7 @@ class Tower:
     icebreak: bool = False     # bullets can pop frozen bloons
     leadbreak: bool = False    # bullets can pop lead bloons
     is_spread: bool = False    # fires N shards in a fan (tack, ice); no aimed bullet
+    freeze_len: int = 0        # frames a frozen bloon stays frozen (ice only)
     pop_count: int = 0
     time_since_last_shot: int = 0
     # Targeting mode. AS only ever uses "first"; "last" is supported for
@@ -43,4 +44,5 @@ class Tower:
             icebreak=stats.get("icebreak", False),
             leadbreak=stats.get("leadbreak", False),
             is_spread=stats.get("is_spread", False),
+            freeze_len=stats.get("freeze_len", 0),
         )

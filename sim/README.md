@@ -171,8 +171,15 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       in a uniform fan when any bloon is in range. Total per-volley pierce = 8.
 - [x] Spike-o-pult: single heavy projectile (lifespan 20, pierce 6).
 - [x] Super Monkey: rapid single-target (attack rate 2, fires every 3 frames).
-- [ ] Tower types remaining: ice, boomerang, beacon, monkey storm; placed
-      items (spikes, glue, pineapple).
+- [x] Ice Ball: spread tower (range 60, attack rate 93), shards freeze hit
+      bloons instead of popping. `freeze_len` propagates tower -> bullet ->
+      bloon at hit time, capped at 100 frames per AS. White (6), ceramic (9),
+      and MOAB (10) are freeze-immune. Frozen bloons hold position and thaw
+      automatically. Non-icebreak towers skip frozen bloons when targeting,
+      so darts/tacks don't waste shots on them. (Snap-freeze / permafrost
+      upgrades are deferred with the upgrade system.)
+- [ ] Tower types remaining: boomerang (return physics), beacon (buffs),
+      monkey storm (consumable); placed items (spikes, glue, pineapple).
 - [ ] Tower upgrades (4 per type, the `GetUpgrade` switch).
 - [ ] Beacon range/rate buffs.
 - [x] Full round table (`btd/rounds.py`): hardcoded rounds 1-50 from

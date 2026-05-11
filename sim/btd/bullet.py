@@ -20,6 +20,7 @@ class Bullet:
     shooter_id: int
     icebreak: bool = False
     leadbreak: bool = False
+    freeze_len: int = 0       # forwarded from ice tower; used by _try_freeze
     # Two-stage bullets (bomb): start with `radius`, detonate on first hit
     # (sets vx=vy=0, swaps to `explosion_radius`), continue colliding until
     # pierce_max or lifespan expires. 0 = no second stage.
@@ -41,6 +42,7 @@ class Bullet:
         shooter_id: int,
         icebreak: bool = False,
         leadbreak: bool = False,
+        freeze_len: int = 0,
     ) -> "Bullet":
         stats = BULLET_STATS[type_]
         return cls(
@@ -55,5 +57,6 @@ class Bullet:
             shooter_id=shooter_id,
             icebreak=icebreak,
             leadbreak=leadbreak,
+            freeze_len=freeze_len,
             explosion_radius=stats.get("explosion_radius", 0.0),
         )

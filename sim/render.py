@@ -155,6 +155,9 @@ class PygameRenderer:
             # White bloon needs outline for visibility against grass.
             if b.rank == 6:
                 pygame.draw.circle(self.screen, (40, 40, 40), (cx, cy), r, 2)
+            # Frozen bloons get a thick cyan halo.
+            if b.frozen:
+                pygame.draw.circle(self.screen, (140, 220, 255), (cx, cy), r + 3, 2)
 
     def _draw_placement_preview(self) -> None:
         if self.selected_tower_type is None:
@@ -205,6 +208,7 @@ class PygameRenderer:
             ("[3] tack       $360", self.font),
             ("[4] spikeopult $600", self.font),
             ("[5] super     $4000", self.font),
+            ("[6] ice        $425", self.font),
             ("[ESC] deselect", self.font),
             ("[Q]   quit  [R] reset", self.font),
             ("", self.font),

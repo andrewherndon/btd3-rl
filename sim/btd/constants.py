@@ -70,6 +70,9 @@ TOWER_STATS: Final = {
     "tack": dict(attackRate=54, attackRadius=70, shootPower=15.0, pierceMax=8,
                  cost=360, name="Tack Shooter",
                  icebreak=False, leadbreak=False, is_spread=True),
+    "ice": dict(attackRate=93, attackRadius=60, shootPower=6.0, pierceMax=50,
+                cost=425, name="Ice Ball", freeze_len=50,
+                icebreak=False, leadbreak=False, is_spread=True),
     "bomb": dict(attackRate=54, attackRadius=120, shootPower=13.0, pierceMax=18,
                  cost=725, name="Cannon",
                  icebreak=True, leadbreak=True, is_spread=False),
@@ -88,6 +91,7 @@ TOWER_STATS: Final = {
 BULLET_STATS: Final = {
     "dart": dict(lifespan=7, radius=4.0, explosion_radius=0.0),
     "tack": dict(lifespan=5, radius=4.0, explosion_radius=0.0),
+    "ice": dict(lifespan=10, radius=4.0, explosion_radius=0.0),
     "bomb": dict(lifespan=18, radius=6.0, explosion_radius=30.0),
     "spikeopult": dict(lifespan=20, radius=6.0, explosion_radius=0.0),
     "super": dict(lifespan=20, radius=4.0, explosion_radius=0.0),

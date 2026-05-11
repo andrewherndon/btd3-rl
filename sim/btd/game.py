@@ -303,11 +303,15 @@ class BloonsSim:
     def _acquire_target(self, t: Tower) -> Optional[Bloon]:
         # AS GetTarget: scans bloon list, dist² < range², picks by progress.
         # AImode "first" = highest progress; "last" = lowest progress.
+        # Non-icebreak towers skip frozen bloons (AS GetTarget: `if(!icebreak)
+        # if(_loc4_.frozen) continue`).
         ar_sq = t.attack_radius * t.attack_radius
         best: Optional[Bloon] = None
         best_progress = -1.0 if t.ai_mode == "first" else 2.0
         for b in self.bloons:
             if not b.alive:
+                continue
+            if b.frozen and not t.icebreak:
                 continue
             dx = b.x - t.x
             dy = b.y - t.y
@@ -327,8 +331,9 @@ class BloonsSim:
     def _shoot_spread(self, t: Tower) -> None:
         # AS spread bullet is a single MovieClip with N visual sub-projectiles;
         # we model it as N independent unit-pierce bullets fanning out evenly.
-        # Total per-volley pierce = SPREAD_SHARDS, matching `tower.pierce_max`
-        # for stock tack (8).
+        # Total per-volley pierce = SPREAD_SHARDS for tack (matches AS
+        # pierce_max=8). Ice has pierce_max=50 on the tower; each shard is
+        # still unit-pierce and just freezes the bloon it hits.
         n = SPREAD_SHARDS
         for i in range(n):
             angle = (2.0 * math.pi * i) / n
@@ -344,6 +349,7 @@ class BloonsSim:
                 shooter_id=t.id,
                 icebreak=t.icebreak,
                 leadbreak=t.leadbreak,
+                freeze_len=t.freeze_len,
             )
             self.bullets.append(bullet)
 
@@ -385,7 +391,13 @@ class BloonsSim:
                 continue
             b.hit_this_frame = False
             if b.frozen:
-                # Ice not implemented yet; placeholder for symmetry.
+                b.time_frozen += 1
+                if b.time_frozen > b.freeze_duration:
+                    b.frozen = False
+                    b.time_frozen = 0
+                # Frozen bloons hold position; refresh in case jitter / branch
+                # state changed elsewhere.
+                self._refresh_position(b)
                 continue
             b.frame += b.speed
             path_len = len(self._path(b.branch))
@@ -449,9 +461,27 @@ class BloonsSim:
             return
         if bullet.type in ("bomb", "pineapple") and bloon.rank == 5:
             return
+        # Ice doesn't pop — it freezes. Snap-freeze + permafrost are upgrades
+        # and not in scope yet.
+        if bullet.type == "ice":
+            self._try_freeze(bloon, bullet)
+            return
         bloon.hits_remaining -= 1
         if bloon.hits_remaining <= 0:
             self._pop(bloon, bullet.shooter_id)
+
+    def _try_freeze(self, bloon: Bloon, bullet: Bullet) -> None:
+        # AS Bloon.Update: only freezeMe if !frozen && rank != 6; and freezeMe
+        # itself early-returns for rank 9, 10.
+        if bloon.frozen:
+            return
+        if bloon.rank == 6:
+            return
+        if bloon.rank in (9, 10):
+            return
+        bloon.frozen = True
+        bloon.time_frozen = 0
+        bloon.freeze_duration = min(bullet.freeze_len, 100)
 
     def _pop(self, bloon: Bloon, shooter_id: int) -> None:
         bloon.popped = True
