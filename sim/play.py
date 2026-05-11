@@ -3,8 +3,11 @@
   python play.py
 
 Controls:
-  1            select dart tower
-  2            select bomb tower
+  1            select dart        ($250)
+  2            select bomb        ($725)
+  3            select tack        ($360)
+  4            select spike-o-pult ($600)
+  5            select super       ($4000)
   Left click   place selected tower (or select existing)
   SPACE        start next round
   ESC          deselect tower-type
@@ -53,6 +56,15 @@ def main() -> None:
                     view.selected_tower_id = None
                 elif event.key == pygame.K_2:
                     view.selected_tower_type = "bomb"
+                    view.selected_tower_id = None
+                elif event.key == pygame.K_3:
+                    view.selected_tower_type = "tack"
+                    view.selected_tower_id = None
+                elif event.key == pygame.K_4:
+                    view.selected_tower_type = "spikeopult"
+                    view.selected_tower_id = None
+                elif event.key == pygame.K_5:
+                    view.selected_tower_type = "super"
                     view.selected_tower_id = None
                 elif event.key == pygame.K_SPACE:
                     sim.start_round()

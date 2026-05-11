@@ -190,8 +190,11 @@ class PygameRenderer:
             (f"Sel:     {self.selected_tower_type or '-'}", self.font),
             ("", self.font),
             ("[SPACE] start round", self.font),
-            ("[1]     dart  ($250)", self.font),
-            ("[2]     bomb  ($725)", self.font),
+            ("[1] dart       $250", self.font),
+            ("[2] bomb       $725", self.font),
+            ("[3] tack       $360", self.font),
+            ("[4] spikeopult $600", self.font),
+            ("[5] super     $4000", self.font),
             ("[ESC]   deselect", self.font),
             ("[Q]     quit", self.font),
         ]

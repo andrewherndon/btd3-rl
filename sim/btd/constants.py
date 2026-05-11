@@ -65,9 +65,20 @@ BLOON_RADIUS: Final = {
 # `icebreak` = bullet can pop frozen bloons; `leadbreak` = bullet can pop leads.
 TOWER_STATS: Final = {
     "dart": dict(attackRate=33, attackRadius=100, shootPower=23.0, pierceMax=1,
-                 cost=250, name="Dart Monkey", icebreak=False, leadbreak=False),
+                 cost=250, name="Dart Monkey",
+                 icebreak=False, leadbreak=False, is_spread=False),
+    "tack": dict(attackRate=54, attackRadius=70, shootPower=15.0, pierceMax=8,
+                 cost=360, name="Tack Shooter",
+                 icebreak=False, leadbreak=False, is_spread=True),
     "bomb": dict(attackRate=54, attackRadius=120, shootPower=13.0, pierceMax=18,
-                 cost=725, name="Cannon", icebreak=True, leadbreak=True),
+                 cost=725, name="Cannon",
+                 icebreak=True, leadbreak=True, is_spread=False),
+    "spikeopult": dict(attackRate=63, attackRadius=110, shootPower=10.0, pierceMax=6,
+                       cost=600, name="Spike-o-pult",
+                       icebreak=False, leadbreak=False, is_spread=False),
+    "super": dict(attackRate=2, attackRadius=140, shootPower=20.0, pierceMax=1,
+                  cost=4000, name="Super Monkey",
+                  icebreak=False, leadbreak=False, is_spread=False),
 }
 
 # Bullet stats, from Bullet.Init. lifespan in frames. radius is sim-only
@@ -76,8 +87,17 @@ TOWER_STATS: Final = {
 # the bullet has no separate exploded stage.
 BULLET_STATS: Final = {
     "dart": dict(lifespan=7, radius=4.0, explosion_radius=0.0),
+    "tack": dict(lifespan=5, radius=4.0, explosion_radius=0.0),
     "bomb": dict(lifespan=18, radius=6.0, explosion_radius=30.0),
+    "spikeopult": dict(lifespan=20, radius=6.0, explosion_radius=0.0),
+    "super": dict(lifespan=20, radius=4.0, explosion_radius=0.0),
 }
+
+# Spread towers fire `SPREAD_SHARDS` projectiles in a uniform fan when any
+# bloon is in range (target is null in AS Shoot for type=="tack"/"ice"/"spikey").
+# Total per-shot pierce is shards * 1, matching the AS pattern of `pierceMax`
+# children each capable of one bloon hit.
+SPREAD_SHARDS: Final = 8
 
 # Spawn-time jitter range (uniform integer 0..9 inclusive on each axis), from
 # BloonsTD.NewBloon: `_loc10_.x = _loc11_ + random(10)`.

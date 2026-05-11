@@ -25,6 +25,7 @@ from .constants import (
     ROUND_END_GRACE_FRAMES,
     ROUND_END_TIMEOUT_FRAMES,
     SPAWN_JITTER_RANGE,
+    SPREAD_SHARDS,
     STARTING_MONEY,
     TOWER_STATS,
 )
@@ -265,9 +266,15 @@ class BloonsSim:
                 continue
             target = self._acquire_target(t)
             if target is None:
+                # Spread towers still need a target-in-range gate. AS calls
+                # GetTarget(), then nulls the target before ShootBullet — the
+                # presence of a bloon in range is what triggers the volley.
                 continue
             t.time_since_last_shot = 0
-            self._shoot(t, target)
+            if t.is_spread:
+                self._shoot_spread(t)
+            else:
+                self._shoot(t, target)
 
     def _acquire_target(self, t: Tower) -> Optional[Bloon]:
         # AS GetTarget: scans bloon list, dist² < range², picks by progress.
@@ -292,6 +299,29 @@ class BloonsSim:
                     best_progress = progress
                     best = b
         return best
+
+    def _shoot_spread(self, t: Tower) -> None:
+        # AS spread bullet is a single MovieClip with N visual sub-projectiles;
+        # we model it as N independent unit-pierce bullets fanning out evenly.
+        # Total per-volley pierce = SPREAD_SHARDS, matching `tower.pierce_max`
+        # for stock tack (8).
+        n = SPREAD_SHARDS
+        for i in range(n):
+            angle = (2.0 * math.pi * i) / n
+            ux = math.cos(angle)
+            uy = math.sin(angle)
+            bullet = Bullet.from_type(
+                type_=t.type,
+                x=t.x + ux * 10.0,
+                y=t.y + uy * 10.0,
+                vx=ux * t.shoot_power,
+                vy=uy * t.shoot_power,
+                pierce_max=1,
+                shooter_id=t.id,
+                icebreak=t.icebreak,
+                leadbreak=t.leadbreak,
+            )
+            self.bullets.append(bullet)
 
     def _shoot(self, t: Tower, target: Bloon) -> None:
         dx = target.x - t.x

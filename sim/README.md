@@ -167,8 +167,12 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
 - [x] Immunity framework: lead clink for non-leadbreak bullets, black bomb-
       immunity, frozen non-icebreak clink, ranks 9/10 multi-hit via
       `hits_remaining`. Verified with case checks.
-- [ ] Tower types beyond dart and bomb: tack, ice, boomerang, spikeopult,
-      super, beacon, monkey storm; placed items (spikes, glue, pineapple).
+- [x] Tack Shooter: spread tower fires `SPREAD_SHARDS` (8) unit-pierce shards
+      in a uniform fan when any bloon is in range. Total per-volley pierce = 8.
+- [x] Spike-o-pult: single heavy projectile (lifespan 20, pierce 6).
+- [x] Super Monkey: rapid single-target (attack rate 2, fires every 3 frames).
+- [ ] Tower types remaining: ice, boomerang, beacon, monkey storm; placed
+      items (spikes, glue, pineapple).
 - [ ] Tower upgrades (4 per type, the `GetUpgrade` switch).
 - [ ] Beacon range/rate buffs.
 - [x] Full round table (`btd/rounds.py`): hardcoded rounds 1-50 from
