@@ -141,11 +141,21 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
 ## Status
 
 - [x] Track-3 path extracted (940 frames, single path).
-- [ ] Per-rank bloon hitbox radii (extract from rank-1..10 `inner` MovieClip
-      bounds).
-- [ ] `BloonsSim` core: bloons + towers + bullets + tick loop.
-- [ ] Round/economy logic (`BuildLevels`, `StartLevel`, `EndLevel`).
-- [ ] Tower placement legality (depends on `Pathhit` rectangles).
+- [x] `BloonsSim` core: tick loop, bloons walking, towers acquiring & shooting,
+      bullets flying, circle-vs-circle collision, pops with child spawning,
+      escape damage, round end with grace + emergency timeout.
+- [x] `smoke_test.py` runs round 1 of track 3 end-to-end (14 reds vs 2 darts;
+      14 pops, 0 escaped, +$114, finishes at frame ~737).
+- [ ] Tower types beyond dart: tack, ice, bomb, boomerang, spikeopult, super,
+      beacon, monkey storm; placed items (spikes, glue, pineapple).
+- [ ] Bloon immunities and special hits (black/white/lead/frozen, MOAB/BFB
+      multi-hit, ceramic).
+- [ ] Tower upgrades (4 per type, the `GetUpgrade` switch).
+- [ ] Beacon range/rate buffs.
+- [ ] Full round table (`BuildLevels` port; rounds 51+ procedural generator).
+- [ ] Per-rank bloon hitbox radii from extracted `inner` bounds (currently
+      placeholders in `constants.BLOON_RADIUS`).
+- [ ] Tower placement legality from `Pathhit` rectangles.
 - [ ] Gymnasium `Env` wrapper.
 - [ ] Pygame renderer.
 - [ ] Other tracks' paths.
