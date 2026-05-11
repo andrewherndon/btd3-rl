@@ -26,6 +26,12 @@ class Bullet:
     # pierce_max or lifespan expires. 0 = no second stage.
     explosion_radius: float = 0.0
     hashit: bool = False
+    # Boomerang-only: position each tick = (anchor + R(arc_angle) @ arc[t])
+    # where arc is the extracted hitbit keyframes. Fields are noops for
+    # other bullet types.
+    arc_anchor_x: float = 0.0
+    arc_anchor_y: float = 0.0
+    arc_angle: float = 0.0
     pierce_count: int = 0
     time_alive: int = 0
     is_dead: bool = False

@@ -9,6 +9,7 @@ Controls:
   4            select spike-o-pult ($600)
   5            select super       ($4000)
   6            select ice         ($425)
+  7            select boomerang   ($515)
   Left click   place selected tower (or select existing)
   SPACE        start next round
   ESC          deselect tower-type
@@ -77,6 +78,9 @@ def main() -> None:
                     view.selected_tower_id = None
                 elif event.key == pygame.K_6:
                     view.selected_tower_type = "ice"
+                    view.selected_tower_id = None
+                elif event.key == pygame.K_7:
+                    view.selected_tower_type = "boomerang"
                     view.selected_tower_id = None
                 # --- debug controls ---
                 elif event.key == pygame.K_p:

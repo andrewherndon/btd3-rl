@@ -149,32 +149,46 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--xml", type=Path, required=True, help="JPEXS-exported SWF XML")
     ap.add_argument("--symbols", type=Path, required=True, help="symbols.csv path")
-    ap.add_argument("--track", type=int, required=True, help="Track number (1-8)")
+    mode = ap.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--track", type=int, help="Track number (1-8) — extracts the rank-1 bloon path and applies stage offset.")
+    mode.add_argument("--sprite-id", type=int, help="Raw sprite ID. No stage-offset applied. Use for bullets/projectiles.")
     ap.add_argument("--branch", type=int, default=1, help="Branch (1-3) for tracks 4,6,8")
+    ap.add_argument("--depth", type=int, default=1,
+                    help="Flash display-list depth to track. Bloons use depth 1 (inner); the boomerang's collision hitbit is depth 3.")
+    ap.add_argument("--out-name", type=str, default=None,
+                    help="Output filename stem. Defaults to track_<n> or sprite_<id>.")
     ap.add_argument("--out-dir", type=Path, default=Path("paths"))
     ap.add_argument(
         "--local-coords",
         action="store_true",
-        help="Save in MovieClip-local coords (skip stage offset).",
+        help="Save in MovieClip-local coords (skip stage offset). No-op when --sprite-id is set.",
     )
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     symbol_map = load_symbol_map(args.symbols)
-    sprite_id, name = resolve_track_sprite_id(args.track, args.branch, symbol_map)
+    if args.track is not None:
+        sprite_id, name = resolve_track_sprite_id(args.track, args.branch, symbol_map)
+        offset: tuple[float, float] | None = get_track_offset(args.track, args.branch)
+        out_stem = args.out_name or f"track_{args.track}"
+        label = f"track {args.track} (branch {args.branch}) -> {name}"
+    else:
+        sprite_id = args.sprite_id
+        # Reverse-lookup the name in symbols.csv if present.
+        name = next((n for n, sid in symbol_map.items() if sid == sprite_id), f"sprite{sprite_id}")
+        offset = None
+        out_stem = args.out_name or f"sprite_{sprite_id}"
+        label = f"sprite {sprite_id} -> {name}"
+
     expected_frames = peek_frame_count(args.xml, sprite_id)
-    offset = get_track_offset(args.track, args.branch)
-    print(
-        f"track {args.track} (branch {args.branch}) -> {name} "
-        f"(sprite {sprite_id}, frameCount={expected_frames}, offset={offset})"
-    )
+    print(f"{label} (sprite {sprite_id}, frameCount={expected_frames}, depth={args.depth}, offset={offset})")
 
     print("streaming XML...")
-    path = extract_path(args.xml, sprite_id)
+    path = extract_path(args.xml, sprite_id, depth_filter=args.depth)
     print(f"extracted {len(path)} frames")
 
-    if not args.local_coords:
+    if offset is not None and not args.local_coords:
         path = path + np.array(offset)
 
     if expected_frames is not None and len(path) != expected_frames:
@@ -183,18 +197,21 @@ def main() -> None:
             f"got {len(path)}"
         )
 
-    out_npy = args.out_dir / f"track_{args.track}.npy"
-    out_json = args.out_dir / f"track_{args.track}.json"
+    out_npy = args.out_dir / f"{out_stem}.npy"
+    out_json = args.out_dir / f"{out_stem}.json"
     np.save(out_npy, path)
     with out_json.open("w") as f:
         json.dump(
             {
                 "track": args.track,
+                "branch": args.branch if args.track is not None else None,
                 "sprite_id": sprite_id,
                 "linkage_name": name,
+                "depth": args.depth,
                 "frame_count": len(path),
                 "units": "pixels",
                 "stage_size_px": [640, 480],
+                "stage_offset_applied": offset is not None and not args.local_coords,
                 "frames": path.round(3).tolist(),
             },
             f,

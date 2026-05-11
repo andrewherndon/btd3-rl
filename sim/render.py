@@ -209,6 +209,7 @@ class PygameRenderer:
             ("[4] spikeopult $600", self.font),
             ("[5] super     $4000", self.font),
             ("[6] ice        $425", self.font),
+            ("[7] boomerang  $515", self.font),
             ("[ESC] deselect", self.font),
             ("[Q]   quit  [R] reset", self.font),
             ("", self.font),

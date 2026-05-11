@@ -82,6 +82,14 @@ TOWER_STATS: Final = {
     "super": dict(attackRate=2, attackRadius=140, shootPower=20.0, pierceMax=1,
                   cost=4000, name="Super Monkey",
                   icebreak=False, leadbreak=False, is_spread=False),
+    # Boomerang. AS has shootPower=0; the bullet itself doesn't move and the
+    # arc lives in the Boomerang MovieClip's per-frame keyframes (symbol 437,
+    # 25 frames, depth=3 hitbit). We extracted those into paths/boomerang_arc
+    # and apply them with a per-shot rotation. attack_radius is informational
+    # for the targeting filter; the arc itself defines the engagement zone.
+    "boomerang": dict(attackRate=50, attackRadius=130, shootPower=0.0, pierceMax=2,
+                      cost=515, name="Boomerang",
+                      icebreak=False, leadbreak=False, is_spread=False),
 }
 
 # Bullet stats, from Bullet.Init. lifespan in frames. radius is sim-only
@@ -92,6 +100,9 @@ BULLET_STATS: Final = {
     "dart": dict(lifespan=7, radius=4.0, explosion_radius=0.0),
     "tack": dict(lifespan=5, radius=4.0, explosion_radius=0.0),
     "ice": dict(lifespan=10, radius=4.0, explosion_radius=0.0),
+    # AS lifespan=50, but the Boomerang MovieClip arc is 25 frames; after that
+    # the bullet would stop at frame 1 (invisible). We match the visible arc.
+    "boomerang": dict(lifespan=24, radius=6.0, explosion_radius=0.0),
     "bomb": dict(lifespan=18, radius=6.0, explosion_radius=30.0),
     "spikeopult": dict(lifespan=20, radius=6.0, explosion_radius=0.0),
     "super": dict(lifespan=20, radius=4.0, explosion_radius=0.0),

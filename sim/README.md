@@ -103,6 +103,15 @@ Flags:
 The `TRACK_OFFSETS` table in this script is the source of truth for
 per-track stage offsets, derived from `BloonsTD.NewBloon` `case <n>` blocks.
 
+For non-bloon trajectories (e.g. the boomerang's keyframed arc), pass
+`--sprite-id <ID> --depth <D> --out-name <stem>` instead of `--track`. No
+stage offset is applied. Example used for the boomerang:
+
+```
+python extract_path.py --xml ... --symbols ... \
+  --sprite-id 437 --depth 3 --out-name boomerang_arc
+```
+
 ### visualize_path.py
 
 Plots a saved path over a 640x480 stage outline. Pure sanity-check tool —
@@ -178,8 +187,16 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       automatically. Non-icebreak towers skip frozen bloons when targeting,
       so darts/tacks don't waste shots on them. (Snap-freeze / permafrost
       upgrades are deferred with the upgrade system.)
-- [ ] Tower types remaining: boomerang (return physics), beacon (buffs),
-      monkey storm (consumable); placed items (spikes, glue, pineapple).
+- [x] Boomerang: trajectory extracted from `Boomerang` MovieClip (sprite 437,
+      25 frames, depth 3 = hitbit). Stored in `paths/boomerang_arc.npy`.
+      Fire-time math computes a per-shot rotation `atan2(ux, -uy)` so the
+      arc's local -y forward axis aligns with the shot direction; each tick
+      the bullet position = `anchor + R(angle) @ arc[t]`. Pierce 2 means the
+      boomerang gets up to 2 hits across its full out-and-back path.
+- [ ] Tower types remaining: beacon (buffs nearby towers).
+- [ ] Out-of-scope for the first RL iteration (no mid-round actions): placed
+      items (spikes, glue, pineapple), monkey storm consumable. Sim API
+      should leave room to add these later.
 - [ ] Tower upgrades (4 per type, the `GetUpgrade` switch).
 - [ ] Beacon range/rate buffs.
 - [x] Full round table (`btd/rounds.py`): hardcoded rounds 1-50 from

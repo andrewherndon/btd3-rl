@@ -57,6 +57,10 @@ class BloonsSim:
 
         # Path data, keyed by branch. Track 3 has one branch.
         self.paths: dict[int, np.ndarray] = self._load_paths(self.config.track)
+        # Bullet arcs keyed by bullet type. None if the bullet integrates via
+        # vx/vy. Boomerang is currently the only one; super-laser etc. could
+        # join later if they have keyframed trajectories.
+        self.bullet_arcs: dict[str, np.ndarray] = self._load_bullet_arcs()
 
         # All rounds, generated once. Order of the embedded list IS the
         # spawn order for that round (the AS BuildLevels appends batches).
@@ -113,6 +117,15 @@ class BloonsSim:
 
     def _path(self, branch: int) -> np.ndarray:
         return self.paths[branch]
+
+    def _load_bullet_arcs(self) -> dict[str, np.ndarray]:
+        """Optional per-frame arc data for bullets whose trajectory is
+        keyframed rather than ballistic. Returns a dict keyed by bullet type."""
+        arcs: dict[str, np.ndarray] = {}
+        boomerang = self.config.paths_dir / "boomerang_arc.npy"
+        if boomerang.exists():
+            arcs["boomerang"] = np.load(boomerang)
+        return arcs
 
     # ------------------------------------------------------------------- API
 
@@ -358,6 +371,34 @@ class BloonsSim:
         dy = target.y - t.y
         dist = math.hypot(dx, dy) or 1.0
         ux, uy = dx / dist, dy / dist
+
+        if t.type == "boomerang" and "boomerang" in self.bullet_arcs:
+            # Boomerang uses a keyframed arc (extracted from the SWF). Its
+            # "forward" axis in the local frame is -y, so rotate by
+            # atan2(ux, -uy) to align the arc with the shot direction.
+            angle = math.atan2(ux, -uy)
+            c = math.cos(angle)
+            s = math.sin(angle)
+            arc0 = self.bullet_arcs["boomerang"][0]
+            x0 = t.x + arc0[0] * c - arc0[1] * s
+            y0 = t.y + arc0[0] * s + arc0[1] * c
+            bullet = Bullet.from_type(
+                type_=t.type,
+                x=x0,
+                y=y0,
+                vx=0.0,
+                vy=0.0,
+                pierce_max=t.pierce_max,
+                shooter_id=t.id,
+                icebreak=t.icebreak,
+                leadbreak=t.leadbreak,
+            )
+            bullet.arc_anchor_x = t.x
+            bullet.arc_anchor_y = t.y
+            bullet.arc_angle = angle
+            self.bullets.append(bullet)
+            return
+
         # AS ShootBullet places the bullet 10 px out from the tower along the
         # shot vector; this matters because the bullet doesn't have to traverse
         # the tower body. Bullets inherit icebreak / leadbreak from the shooter.
@@ -382,8 +423,17 @@ class BloonsSim:
             if b.time_alive > b.lifespan:
                 b.is_dead = True
                 continue
-            b.x += b.vx
-            b.y += b.vy
+            arc = self.bullet_arcs.get(b.type)
+            if arc is not None:
+                idx = min(b.time_alive, len(arc) - 1)
+                lx, ly = arc[idx]
+                c = math.cos(b.arc_angle)
+                s = math.sin(b.arc_angle)
+                b.x = b.arc_anchor_x + lx * c - ly * s
+                b.y = b.arc_anchor_y + lx * s + ly * c
+            else:
+                b.x += b.vx
+                b.y += b.vy
 
     def _tick_bloons(self) -> None:
         for b in self.bloons:
