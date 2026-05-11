@@ -161,10 +161,14 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       with the mouse, SPACE starts the next round, ESC deselects, R resets,
       Q quits. Placeholder graphics — colored circles for bloons sized by
       rank, squares for towers, polyline for path.
-- [ ] Tower types beyond dart: tack, ice, bomb, boomerang, spikeopult, super,
-      beacon, monkey storm; placed items (spikes, glue, pineapple).
-- [ ] Bloon immunities and special hits (black/white/lead/frozen, MOAB/BFB
-      multi-hit, ceramic).
+- [x] Bomb tower (Cannon) + two-stage bullet (flies until first hit, then
+      stops with a larger explosion radius). icebreak + leadbreak flags
+      propagate from tower -> bullet.
+- [x] Immunity framework: lead clink for non-leadbreak bullets, black bomb-
+      immunity, frozen non-icebreak clink, ranks 9/10 multi-hit via
+      `hits_remaining`. Verified with case checks.
+- [ ] Tower types beyond dart and bomb: tack, ice, boomerang, spikeopult,
+      super, beacon, monkey storm; placed items (spikes, glue, pineapple).
 - [ ] Tower upgrades (4 per type, the `GetUpgrade` switch).
 - [ ] Beacon range/rate buffs.
 - [x] Full round table (`btd/rounds.py`): hardcoded rounds 1-50 from

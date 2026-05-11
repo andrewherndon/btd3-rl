@@ -29,8 +29,8 @@ Source: `Decompiled-Limited/scripts/` (ActionScript 3 from the BTD3 SWF). Art li
   - rank 5, 6 → 2× rank-4
   - rank 7 (lead) → 2× rank-5
   - rank 8 (rainbow) → 2× rank-5 + 2× rank-6
-  - rank 9 (MOAB) → 2× rank-8 (needs 8 hits before popping)
-  - rank 10 (BFB) → 4× rank-9 (needs 130 hits before popping)
+  - rank 9 (ceramic, brown) → 2× rank-8 (needs 8 hits before popping). Plays `ceramicSnd` on each non-popping hit. `levelHints[33]`: "Enjoying the brown bloons? They're ceramic..."
+  - rank 10 (MOAB, "Massive Ornary Air Blimp") → 4× rank-9 (needs 130 hits before popping). `levelHints[36]`: "Beware the M.O.A.B - its coming next level." First appears at round 37. There is no "BFB" in BTD3; that's BTD4+ terminology.
 - Pop immunities (in `Pop` and `Update`):
   - rank 5 (black) immune to bomb / pineapple
   - rank 6 (white) immune to ice

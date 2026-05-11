@@ -18,6 +18,13 @@ class Bullet:
     radius: float
     lifespan: int
     shooter_id: int
+    icebreak: bool = False
+    leadbreak: bool = False
+    # Two-stage bullets (bomb): start with `radius`, detonate on first hit
+    # (sets vx=vy=0, swaps to `explosion_radius`), continue colliding until
+    # pierce_max or lifespan expires. 0 = no second stage.
+    explosion_radius: float = 0.0
+    hashit: bool = False
     pierce_count: int = 0
     time_alive: int = 0
     is_dead: bool = False
@@ -32,6 +39,8 @@ class Bullet:
         vy: float,
         pierce_max: int,
         shooter_id: int,
+        icebreak: bool = False,
+        leadbreak: bool = False,
     ) -> "Bullet":
         stats = BULLET_STATS[type_]
         return cls(
@@ -44,4 +53,7 @@ class Bullet:
             radius=stats["radius"],
             lifespan=stats["lifespan"],
             shooter_id=shooter_id,
+            icebreak=icebreak,
+            leadbreak=leadbreak,
+            explosion_radius=stats.get("explosion_radius", 0.0),
         )

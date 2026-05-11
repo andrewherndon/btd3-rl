@@ -300,7 +300,7 @@ class BloonsSim:
         ux, uy = dx / dist, dy / dist
         # AS ShootBullet places the bullet 10 px out from the tower along the
         # shot vector; this matters because the bullet doesn't have to traverse
-        # the tower body.
+        # the tower body. Bullets inherit icebreak / leadbreak from the shooter.
         bullet = Bullet.from_type(
             type_=t.type,
             x=t.x + ux * 10.0,
@@ -309,6 +309,8 @@ class BloonsSim:
             vy=uy * t.shoot_power,
             pierce_max=t.pierce_max,
             shooter_id=t.id,
+            icebreak=t.icebreak,
+            leadbreak=t.leadbreak,
         )
         self.bullets.append(bullet)
 
@@ -367,7 +369,32 @@ class BloonsSim:
     # -- pop / hit / escape ----------------------------------------------------
 
     def _on_hit(self, bullet: Bullet, bloon: Bloon) -> None:
-        # First-pass: no immunities, no MOAB/BFB multi-hit, every dart pops a bloon.
+        # Order mirrors the AS Bloon.Update collision branch:
+        #   1. Lead clink (rank 7 + non-leadbreak + non-ice): big pierce penalty,
+        #      no pop. AS adds 5 to pierceCount; _tick_collisions already added 1,
+        #      so we add 4 more.
+        #   2. Bomb two-stage: on the bomb's first hit, stop moving and switch
+        #      to explosion radius. Continues to pop bloons via subsequent
+        #      collision-loop iterations (matches AS's bloon-by-bloon
+        #      explosion sweep, just collapsed into one frame).
+        #   3. Frozen clink (frozen + non-icebreak + non-ice): no pop.
+        #   4. Black bomb-immunity (rank 5 + bomb/pineapple): no pop. AS:
+        #      `if((bomb or pineapple) && rank != 9 && rank != 10) if(rank == 5)
+        #      popped=false; done=false; return`.
+        # Otherwise pop (MOAB / ceramic decrement hits_remaining first).
+        if bloon.rank == 7 and not bullet.leadbreak and bullet.type != "ice":
+            bullet.pierce_count += 4
+            return
+        if bullet.type == "bomb" and not bullet.hashit:
+            bullet.hashit = True
+            bullet.vx = 0.0
+            bullet.vy = 0.0
+            if bullet.explosion_radius > 0.0:
+                bullet.radius = bullet.explosion_radius
+        if bloon.frozen and not bullet.icebreak and bullet.type != "ice":
+            return
+        if bullet.type in ("bomb", "pineapple") and bloon.rank == 5:
+            return
         bloon.hits_remaining -= 1
         if bloon.hits_remaining <= 0:
             self._pop(bloon, bullet.shooter_id)

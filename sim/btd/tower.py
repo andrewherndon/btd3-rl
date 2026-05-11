@@ -18,6 +18,8 @@ class Tower:
     shoot_power: float
     pierce_max: int
     spent_on_me: int
+    icebreak: bool = False     # bullets can pop frozen bloons
+    leadbreak: bool = False    # bullets can pop lead bloons
     pop_count: int = 0
     time_since_last_shot: int = 0
     # Targeting mode. AS only ever uses "first"; "last" is supported for
@@ -37,4 +39,6 @@ class Tower:
             shoot_power=stats["shootPower"],
             pierce_max=stats["pierceMax"],
             spent_on_me=stats["cost"],
+            icebreak=stats.get("icebreak", False),
+            leadbreak=stats.get("leadbreak", False),
         )

@@ -21,6 +21,15 @@ BLOON_MAXSPEED: Final = {
     6: 2.5, 7: 1.0, 8: 2.2, 9: 2.5, 10: 1.0,
 }
 
+# Names by rank, for debugging. Level hint 33 ("brown bloons ... ceramic, take
+# several hits") confirms rank 9 = ceramic; level hint 36 ("beware the M.O.A.B
+# its coming next level") + round-37 data (1x rank-10) confirms rank 10 = MOAB.
+BLOON_NAMES: Final = {
+    1: "red", 2: "blue", 3: "green", 4: "yellow",
+    5: "black", 6: "white", 7: "lead", 8: "rainbow",
+    9: "ceramic", 10: "MOAB",
+}
+
 # Lives lost on escape, from BloonsTD.Escaped.
 BLOON_ESCAPE_DAMAGE: Final = {
     1: 1, 2: 2, 3: 3, 4: 4, 5: 9,
@@ -53,15 +62,21 @@ BLOON_RADIUS: Final = {
 
 # Tower stats, from Tower.Init. attackRate in frames between shots; attackRadius
 # in px; shootPower in px/frame (bullet speed); pierceMax = bloons per bullet.
+# `icebreak` = bullet can pop frozen bloons; `leadbreak` = bullet can pop leads.
 TOWER_STATS: Final = {
     "dart": dict(attackRate=33, attackRadius=100, shootPower=23.0, pierceMax=1,
-                 cost=250, name="Dart Monkey"),
+                 cost=250, name="Dart Monkey", icebreak=False, leadbreak=False),
+    "bomb": dict(attackRate=54, attackRadius=120, shootPower=13.0, pierceMax=18,
+                 cost=725, name="Cannon", icebreak=True, leadbreak=True),
 }
 
 # Bullet stats, from Bullet.Init. lifespan in frames. radius is sim-only
-# (placeholder for hitTestObject -> circle replacement).
+# (placeholder for hitTestObject -> circle replacement). `explosion_radius`
+# is the post-detonation radius for two-stage bullets (bomb only). 0 means
+# the bullet has no separate exploded stage.
 BULLET_STATS: Final = {
-    "dart": dict(lifespan=7, radius=4.0),
+    "dart": dict(lifespan=7, radius=4.0, explosion_radius=0.0),
+    "bomb": dict(lifespan=18, radius=6.0, explosion_radius=30.0),
 }
 
 # Spawn-time jitter range (uniform integer 0..9 inclusive on each axis), from

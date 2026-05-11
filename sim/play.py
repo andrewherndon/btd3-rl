@@ -4,6 +4,7 @@
 
 Controls:
   1            select dart tower
+  2            select bomb tower
   Left click   place selected tower (or select existing)
   SPACE        start next round
   ESC          deselect tower-type
@@ -49,6 +50,9 @@ def main() -> None:
                     view.selected_tower_id = None
                 elif event.key == pygame.K_1:
                     view.selected_tower_type = "dart"
+                    view.selected_tower_id = None
+                elif event.key == pygame.K_2:
+                    view.selected_tower_type = "bomb"
                     view.selected_tower_id = None
                 elif event.key == pygame.K_SPACE:
                     sim.start_round()
