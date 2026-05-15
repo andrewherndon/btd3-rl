@@ -25,6 +25,7 @@ from .constants import (
     BLOON_RADIUS,
     COST_MULT_BY_DIFF,
     LIVES_BY_DIFF,
+    PATH_PLACEMENT_BUFFER,
     ROUND_END_GRACE_FRAMES,
     ROUND_END_TIMEOUT_FRAMES,
     SELL_RATE,
@@ -134,10 +135,16 @@ class BloonsSim:
     # ------------------------------------------------------------------- API
 
     def place_tower(self, type_: str, x: float, y: float) -> int:
-        """Buy and place a tower. Returns the tower id, or -1 if not enough money.
-        Legality check (path overlap, tower overlap) is the caller's job for now."""
+        """Buy and place a tower. Returns the tower id, or -1 if invalid
+        (insufficient money OR position too close to the path).
+
+        Tower-vs-tower overlap is *not* checked — the right-click placement
+        glitch in BTD3 lets towers stack arbitrarily close, and speedruns rely
+        on it. We preserve that."""
         if type_ not in TOWER_STATS:
             raise ValueError(f"unknown tower type: {type_}")
+        if not self.is_placement_valid(x, y):
+            return -1
         price = self._price(TOWER_STATS[type_]["cost"])
         if price > self.money:
             return -1
@@ -146,6 +153,32 @@ class BloonsSim:
         self._next_tower_id += 1
         self.towers.append(Tower.from_type(tid, type_, x, y))
         return tid
+
+    def is_placement_valid(self, x: float, y: float) -> bool:
+        """A position is valid iff its distance to every path branch's
+        centerline exceeds `PATH_PLACEMENT_BUFFER`. Lives off the renderer so
+        play.py can color the placement preview."""
+        return self.distance_to_path(x, y) > PATH_PLACEMENT_BUFFER
+
+    def distance_to_path(self, x: float, y: float) -> float:
+        """Minimum Euclidean distance from (x, y) to any segment of any path
+        branch. Vectorised over each branch's segments."""
+        point = np.array([x, y], dtype=np.float64)
+        best = float("inf")
+        for branch_path in self.paths.values():
+            a = branch_path[:-1]
+            b = branch_path[1:]
+            seg = b - a
+            rel = point - a
+            seg_len_sq = (seg ** 2).sum(axis=1)
+            seg_len_sq = np.where(seg_len_sq == 0.0, 1.0, seg_len_sq)
+            t = (rel * seg).sum(axis=1) / seg_len_sq
+            t = np.clip(t, 0.0, 1.0)
+            closest = a + t[:, None] * seg
+            d = np.linalg.norm(point - closest, axis=1).min()
+            if d < best:
+                best = float(d)
+        return best
 
     def sell_tower(self, tower_id: int) -> bool:
         for i, tower in enumerate(self.towers):

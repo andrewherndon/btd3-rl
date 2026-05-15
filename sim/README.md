@@ -229,7 +229,13 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       gates play past round 50.
 - [ ] Per-rank bloon hitbox radii from extracted `inner` bounds (currently
       placeholders in `constants.BLOON_RADIUS`).
-- [ ] Tower placement legality from `Pathhit` rectangles.
+- [x] Tower placement legality via a uniform buffer (`PATH_PLACEMENT_BUFFER`,
+      currently 16 px) around the path centerline — bypasses the AS `Pathhit`
+      rectangle extraction in favour of a numpy point-to-polyline distance.
+      Tower-vs-tower overlap is *not* blocked, preserving the right-click
+      placement glitch BTD3 speedruns rely on. Renderer draws the track at
+      exactly the no-place width with a darker edge, and the placement
+      preview turns red/green for invalid/valid in real time.
 - [ ] Gymnasium `Env` wrapper.
 - [ ] Pygame renderer.
 - [ ] Other tracks' paths.

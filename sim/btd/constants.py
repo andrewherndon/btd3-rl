@@ -135,6 +135,14 @@ SPREAD_SHARDS: Final = 8
 # BloonsTD.NewBloon: `_loc10_.x = _loc11_ + random(10)`.
 SPAWN_JITTER_RANGE: Final = 10
 
+# Radius (px) around the path centerline where towers cannot be placed. AS
+# uses explicit Pathhit rectangles laid out per-track in the SWF
+# (`pathhitmc_15`, symbol 538, frame N for track N); we approximate with a
+# uniform buffer around the bloon's extracted centerline. A bloon's collision
+# radius is up to ~16 px (MOAB excluded — they're flying anyway). Tower-vs-
+# tower overlap is permitted (matches the right-click speedrun glitch).
+PATH_PLACEMENT_BUFFER: Final = 16.0
+
 # Round-end timing, from BloonsTD.EnterFrame.
 ROUND_END_GRACE_FRAMES: Final = 20      # frames after last bloon clears
 ROUND_END_TIMEOUT_FRAMES: Final = 5 * FPS  # emergency cutoff (was 5000 ms)

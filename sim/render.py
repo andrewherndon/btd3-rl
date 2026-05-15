@@ -16,7 +16,7 @@ import math
 
 import pygame
 
-from btd.constants import BEACON_RANGE_FACTOR, BLOON_RADIUS, STAGE_H, STAGE_W
+from btd.constants import BEACON_RANGE_FACTOR, BLOON_RADIUS, PATH_PLACEMENT_BUFFER, STAGE_H, STAGE_W
 from btd.game import BloonsSim
 
 
@@ -46,8 +46,10 @@ TOWER_COLORS: dict[str, tuple[int, int, int]] = {
 }
 
 PATH_COLOR = (190, 165, 110)
-PATH_WIDTH = 14
+PATH_EDGE_COLOR = (140, 90, 60)
 GRASS_COLOR = (110, 160, 90)
+PLACEMENT_OK_COLOR = (40, 200, 40)
+PLACEMENT_BAD_COLOR = (220, 50, 50)
 HUD_BG = (245, 245, 230)
 HUD_BORDER = (60, 60, 60)
 HUD_TEXT = (30, 30, 30)
@@ -114,12 +116,16 @@ class PygameRenderer:
     # -- pieces ---------------------------------------------------------------
 
     def _draw_path(self) -> None:
-        path = self.sim.paths[1]
-        # Clip to on-screen segment; the path enters / exits off the stage,
-        # so we use it as-is and let pygame clip.
-        pts = [self.stage_to_screen(p[0], p[1]) for p in path]
-        if len(pts) >= 2:
-            pygame.draw.lines(self.screen, PATH_COLOR, False, pts, PATH_WIDTH)
+        # The rendered path width = 2 × PATH_PLACEMENT_BUFFER in stage units,
+        # so the visible track is *exactly* the no-place zone. An outer edge
+        # stroke makes the boundary readable. All path branches are drawn.
+        inner_w = int(2 * PATH_PLACEMENT_BUFFER * self.scale)
+        edge_w = max(inner_w + int(4 * self.scale), inner_w + 4)
+        for branch_path in self.sim.paths.values():
+            pts = [self.stage_to_screen(p[0], p[1]) for p in branch_path]
+            if len(pts) >= 2:
+                pygame.draw.lines(self.screen, PATH_EDGE_COLOR, False, pts, edge_w)
+                pygame.draw.lines(self.screen, PATH_COLOR, False, pts, inner_w)
 
     def _draw_towers(self) -> None:
         for t in self.sim.towers:
@@ -180,16 +186,20 @@ class PygameRenderer:
         sx, sy = self.mouse_pos
         if not self.in_stage_area(sx, sy):
             return
+        stage_x, stage_y = self.screen_to_stage(sx, sy)
+        valid = self.sim.is_placement_valid(stage_x, stage_y)
+        border = PLACEMENT_OK_COLOR if valid else PLACEMENT_BAD_COLOR
         color = TOWER_COLORS.get(self.selected_tower_type, (200, 200, 200))
         size = max(10, int(10 * self.scale))
         rect = pygame.Rect(sx - size // 2, sy - size // 2, size, size)
         ghost = pygame.Surface((size, size), pygame.SRCALPHA)
         ghost.fill((*color, 130))
         self.screen.blit(ghost, rect.topleft)
+        pygame.draw.rect(self.screen, border, rect, 2)
         # Range preview.
         from btd.constants import TOWER_STATS
         r = int(TOWER_STATS[self.selected_tower_type]["attackRadius"] * self.scale)
-        pygame.draw.circle(self.screen, (255, 255, 255), (sx, sy), r, 1)
+        pygame.draw.circle(self.screen, border, (sx, sy), r, 1)
 
     def _draw_hud(self) -> None:
         x0 = self.stage_px_w
