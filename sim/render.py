@@ -89,6 +89,9 @@ class PygameRenderer:
         self.mouse_pos: tuple[int, int] = (0, 0)
         # Interactive playtest state; driven by play.py.
         self.paused: bool = False
+        # Cached path render — only rebuilt when the sim instance changes.
+        self._path_surface: Optional[pygame.Surface] = None
+        self._path_surface_sim_id: Optional[int] = None
 
     # -- coordinate transforms ------------------------------------------------
 
@@ -117,15 +120,38 @@ class PygameRenderer:
 
     def _draw_path(self) -> None:
         # The rendered path width = 2 × PATH_PLACEMENT_BUFFER in stage units,
-        # so the visible track is *exactly* the no-place zone. An outer edge
-        # stroke makes the boundary readable. All path branches are drawn.
+        # so the visible track is *exactly* the no-place zone. Cached to a
+        # static surface — the path doesn't change at runtime.
+        if (self._path_surface is None
+                or self._path_surface_sim_id != id(self.sim)):
+            self._path_surface = self._make_path_surface()
+            self._path_surface_sim_id = id(self.sim)
+        self.screen.blit(self._path_surface, (0, 0))
+
+    def _make_path_surface(self) -> pygame.Surface:
+        # Drawn in two passes (edge first, inner on top) so joints layer
+        # correctly. Filled circles at every vertex fill the gaps pygame's
+        # draw.lines leaves at thick-segment joins, giving rounded corners.
+        surf = pygame.Surface(
+            (self.stage_px_w + self.hud_w, self.stage_px_h), pygame.SRCALPHA
+        )
         inner_w = int(2 * PATH_PLACEMENT_BUFFER * self.scale)
         edge_w = max(inner_w + int(4 * self.scale), inner_w + 4)
-        for branch_path in self.sim.paths.values():
-            pts = [self.stage_to_screen(p[0], p[1]) for p in branch_path]
+        branches = [
+            [self.stage_to_screen(p[0], p[1]) for p in bp]
+            for bp in self.sim.paths.values()
+        ]
+        for pts in branches:
             if len(pts) >= 2:
-                pygame.draw.lines(self.screen, PATH_EDGE_COLOR, False, pts, edge_w)
-                pygame.draw.lines(self.screen, PATH_COLOR, False, pts, inner_w)
+                pygame.draw.lines(surf, PATH_EDGE_COLOR, False, pts, edge_w)
+                for p in pts:
+                    pygame.draw.circle(surf, PATH_EDGE_COLOR, p, edge_w // 2)
+        for pts in branches:
+            if len(pts) >= 2:
+                pygame.draw.lines(surf, PATH_COLOR, False, pts, inner_w)
+                for p in pts:
+                    pygame.draw.circle(surf, PATH_COLOR, p, inner_w // 2)
+        return surf
 
     def _draw_towers(self) -> None:
         for t in self.sim.towers:
