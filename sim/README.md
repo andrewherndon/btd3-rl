@@ -205,8 +205,11 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
 - [x] Tower upgrades (`btd/upgrades.py`): 28 upgrades (4 per tower; beacon3/4
       omitted since they depend on monkey storm). Data-driven specs with
       additive deltas, absolute setters, flag flips, and a `reset_tsls`
-      knob for transform upgrades. Path-locking matches AS (buying
-      `upgrade2` locks out `upgrade1`/`upgrade3` forever). Behavioural ties:
+      knob for transform upgrades. Two independent paths (flags 1+2 form
+      path 1, flags 3+4 form path 2 — derived from `toweroptions_121.as
+      Refresh()`). Both paths can be fully maxed in any interleaved order;
+      the only prerequisite is each path's level-2 needs its level-1 first.
+      Behavioural ties:
       bomb upgrade2 spawns frags on detonation; ice upgrade2 (permafrost)
       halves bloon speed post-thaw with proper freezer-id propagation to
       children of snap-frozen parents; ice upgrade4 (snap freeze) procs at

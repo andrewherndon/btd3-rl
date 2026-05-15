@@ -42,7 +42,11 @@ Source: `Decompiled-Limited/scripts/` (ActionScript 3 from the BTD3 SWF). Art li
 
 - Static stats set in `Init()` by `type`: `attackRate` (frames between shots), `attackRadius` (px), `pierceMax`, `shootPower` (bullet speed), `freezeLen`, `pierceMax`, plus flags `isspread`, `icebreak`, `leadbreak`.
 - Targeting: `GetTarget()` scans `bloonholder`, filters by `dist² < arsq` (skips frozen unless `icebreak`), picks by `AImode` — `"first"` = max progress, `"last"` = min progress. Only two modes exist; no "strong"/"close". `AImode` is set to `"first"` in `Tower()` and never reassigned anywhere — every tower in the shipped game targets first.
-- Upgrades: 4 per tower, two paths (1+3 / 2+4). Resolved in `BloonsTD.GetUpgrade()` as a flat switch over `"<type><n>"`. Flips a boolean on the tower and mutates a stat (e.g. range +25, rate -15, `transformed=true`).
+- Upgrades: 4 per tower, two paths of two upgrades each. Path mapping comes from `bloonstd3_fla/toweroptions_121.as Refresh()`:
+  - button 1 (path 1) sells `<type>1` then `<type>2` → flags `upgrade1`, `upgrade2`
+  - button 2 (path 2) sells `<type>3` then `<type>4` → flags `upgrade3`, `upgrade4`
+  Paths are independent. The `if(upgrade2) return` / `if(upgrade4) return` guards in `clickUpgradeBtn` are "path is maxed, button is dead", not cross-locks. You can max both paths in any interleaved order.
+  Effects applied in `BloonsTD.GetUpgrade()` as a flat switch over `"<type><n>"`. Flips a boolean on the tower and mutates a stat (e.g. range +25, rate -15, `transformed=true`).
 - Beacon: not an attacker. `doBeaconUpdate()` flips `beaconRadius` (→ ×1.2 range) and `beaconRate` (→ ×0.85 rate) on towers within its radius.
 - Sell refund: `floor(SELL_RATE * spentonme)`, `SELL_RATE = 0.8`. `spentonme` accumulates base + upgrade costs.
 - Difficulty cost multiplier: `GetPrice(c) = round((c * costmult) / 5) * 5`. `costmult` = 0.85 / 1.02 / 1.08 (easy/med/hard).
@@ -50,7 +54,7 @@ Source: `Decompiled-Limited/scripts/` (ActionScript 3 from the BTD3 SWF). Art li
 ## Bullets (`Bullet.as`)
 
 - One MovieClip per shot. `Init()` sets `lifespan` (frames) and `pierceMax` per type. Spread bullets (`tack`) use 8 child sub-projectiles indexed `tack1..tack8`.
-- Bomb: on first hit → `vx = vy = 0`, plays explosion. If shooter has `upgrade2` (missile/frag), spawns `Frags` from impact point. The bomb stays alive for its full `lifespan` after detonation so its explosion bbox keeps hitting bloons until `pierceMax` is exhausted.
+- Bomb: on first hit → `vx = vy = 0`, plays explosion. If shooter has `upgrade2` (frag — path 1 level 2), spawns `Frags` from impact point. The bomb stays alive for its full `lifespan` after detonation so its explosion bbox keeps hitting bloons until `pierceMax` is exhausted. Missile (`upgrade4`, path 2 level 2) is the visual / stat transform — separate from frag.
 - Pineapples idle until they explode (the bloon-side check is `if(_loc3_.type == "pineapple") if(!_loc3_.exploded) continue`). The `exploded` flag is set by frame script on the pineapple MovieClip itself.
 - Ice freeze: when frozen, bloon stops advancing and `timeFrozen++`. Thaws when `timeFrozen > min(freezer.freezeLen, 100)`. Default `freezeLen` = 50 (=1.25 s at 40 fps). Permafrost (`upgrade2`) halves speed permanently after thaw. Snap freeze (`upgrade4`): 40% chance to pop instantly on freeze for non-MOAB/BFB.
 - `RoadSpikes`, `Glue`, `Pineapple` are placed by player click via `ShootBullet(false, false)` with `vx = vy = 0` and long `lifespan`.
@@ -63,7 +67,7 @@ Source: `Decompiled-Limited/scripts/` (ActionScript 3 from the BTD3 SWF). Art li
 - Round 51+: `globSpeedMod = (round - 50) / 15` (reassigned each round, not accumulated; +0.1 medium, +0.25 hard). Added to every new bloon's `maxspeed` at `Bloon.Init`.
 - Round reward: `99 + round`. Pop reward: 1$ per pop pre-round-51, 1/3 chance pre-round-60, 1/5 chance after.
 - Starting money: 650. Lives: 100 / 75 / 50 by difficulty.
-- Special: `MonkeyStorm` ($1000, unlocked by Beacon upgrade2) — kills all non-rank-10 bloons in its hitbox.
+- Special: `MonkeyStorm` ($1000, unlocked by Beacon `upgrade3` "storm" — path 2 level 1; `beacon4` calls `callMonkeyStorm`) — kills all non-rank-10 bloons in its hitbox. AS also has a side-effect in `doBeaconUpdate` that sets `stormready=true` when a beacon has `upgrade2` (drums) and the storm MovieClip is at frame 1, which appears to be a residual/bug — the canonical unlock is via `upgrade3`.
 
 ## Per-track stage offsets (from `BloonsTD.NewBloon`)
 

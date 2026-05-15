@@ -1,14 +1,15 @@
 """Tower upgrade definitions. Ports BloonsTD.GetUpgrade() from BloonsTD.as.
 
-Each tower has up to 4 upgrades. Two paths of two upgrades each:
-  path 1 = upgrade1 (level 1) then upgrade3 (level 2)
-  path 2 = upgrade2 (level 1) then upgrade4 (level 2)
+Two paths of two upgrades each. The flag-to-path mapping is determined by
+bloonstd3_fla/toweroptions_121.as Refresh(), which sells the upgrades like so:
 
-Path-locking (from AS clickUpgradeBtn):
-  - The upgrade1 button is blocked once upgrade2 is bought, which means you
-    can never buy upgrade1 or upgrade3 after committing to path 2. Path 2 has
-    no equivalent block in the other direction, so buying path 1 first and
-    then progressing to path 2 is allowed.
+  button 1 (path 1): sells `<type>1`, then `<type>2`   ->  flags upgrade1, upgrade2
+  button 2 (path 2): sells `<type>3`, then `<type>4`   ->  flags upgrade3, upgrade4
+
+The two paths are fully independent. The `if(upgrade2) return` / `if(upgrade4)
+return` guards in BloonsTD.clickUpgradeBtn are just "path is maxed, no more to
+buy" — not cross-path locks. You can max both paths in any order, e.g.
+upgrade1 -> upgrade3 -> upgrade2 -> upgrade4 -> done.
 
 Out of scope (omitted from the table; depend on monkey storm consumable which
 the first RL iteration excludes):
@@ -109,22 +110,24 @@ UPGRADES: dict[str, UpgradeSpec] = {
 def next_path_upgrade(tower_type: str, path: int,
                       u1: bool, u2: bool, u3: bool, u4: bool) -> str | None:
     """Return the upgrade name the given path button would buy next, or None
-    if the path is exhausted or locked. Path 1 = upgrade1 then upgrade3,
-    Path 2 = upgrade2 then upgrade4. Path 1 is locked once upgrade2 is bought."""
+    if the path is fully maxed.
+
+    Path 1 sells `<type>1` then `<type>2` (flags upgrade1 then upgrade2).
+    Path 2 sells `<type>3` then `<type>4` (flags upgrade3 then upgrade4).
+    Paths are independent — no cross-locking."""
     if path == 1:
-        if u2:
-            return None
         if not u1:
             return f"{tower_type}1"
-        if not u3:
-            return f"{tower_type}3"
+        if not u2:
+            name = f"{tower_type}2"
+            return name if name in UPGRADES else None
         return None
     if path == 2:
-        if u4:
-            return None
-        if not u2:
-            return f"{tower_type}2"
-        name = f"{tower_type}4"
-        # beacon4 is not a real upgrade (monkey-storm action); refuse.
-        return name if name in UPGRADES else None
+        if not u3:
+            name = f"{tower_type}3"
+            return name if name in UPGRADES else None
+        if not u4:
+            name = f"{tower_type}4"
+            return name if name in UPGRADES else None
+        return None
     raise ValueError(f"path must be 1 or 2, got {path}")

@@ -237,13 +237,9 @@ class PygameRenderer:
             lines.append((f"--- {sel.type} #{sel.id} ---", self.font))
             lines.append((f"range {sel.attack_radius:>3.0f}  rate {sel.attack_rate}", self.font))
             lines.append((f"pierce {sel.pierce_max}  pops {sel.pop_count}", self.font))
-            flags = "".join([
-                "1" if sel.upgrade1 else ".",
-                "2" if sel.upgrade2 else ".",
-                "3" if sel.upgrade3 else ".",
-                "4" if sel.upgrade4 else ".",
-            ])
-            lines.append((f"upgrades {flags}", self.font))
+            p1 = int(sel.upgrade1) + int(sel.upgrade2)
+            p2 = int(sel.upgrade3) + int(sel.upgrade4)
+            lines.append((f"path1 {p1}/2   path2 {p2}/2", self.font))
             avail = s.available_upgrades(sel.id)
             for path in (1, 2):
                 entry = avail[path]

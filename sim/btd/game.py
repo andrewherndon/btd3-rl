@@ -201,17 +201,19 @@ class BloonsSim:
         return out
 
     def _can_upgrade(self, tower, upgrade_name: str) -> bool:
+        # Flags 1+2 are path 1 (level 1 then level 2); flags 3+4 are path 2.
+        # No cross-path locking; each path just requires its level-1 first.
         if not upgrade_name.startswith(tower.type):
             return False
         suffix = upgrade_name[len(tower.type):]
         if suffix == "1":
-            return not tower.upgrade1 and not tower.upgrade2
+            return not tower.upgrade1
         if suffix == "2":
-            return not tower.upgrade2 and not tower.upgrade4
+            return tower.upgrade1 and not tower.upgrade2
         if suffix == "3":
-            return tower.upgrade1 and not tower.upgrade3 and not tower.upgrade2
+            return not tower.upgrade3
         if suffix == "4":
-            return tower.upgrade2 and not tower.upgrade4
+            return tower.upgrade3 and not tower.upgrade4
         return False
 
     def _apply_upgrade(self, tower, upgrade_name: str, spec: UpgradeSpec) -> None:
