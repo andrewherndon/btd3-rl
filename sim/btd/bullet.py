@@ -49,6 +49,7 @@ class Bullet:
         icebreak: bool = False,
         leadbreak: bool = False,
         freeze_len: int = 0,
+        scale: float = 1.0,
     ) -> "Bullet":
         stats = BULLET_STATS[type_]
         return cls(
@@ -58,11 +59,11 @@ class Bullet:
             vx=vx,
             vy=vy,
             pierce_max=pierce_max,
-            radius=stats["radius"],
+            radius=stats["radius"] * scale,
             lifespan=stats["lifespan"],
             shooter_id=shooter_id,
             icebreak=icebreak,
             leadbreak=leadbreak,
             freeze_len=freeze_len,
-            explosion_radius=stats.get("explosion_radius", 0.0),
+            explosion_radius=stats.get("explosion_radius", 0.0) * scale,
         )

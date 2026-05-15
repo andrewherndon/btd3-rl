@@ -228,6 +228,32 @@ class PygameRenderer:
             ("[8] beacon    $1000", self.font),
             ("[ESC] deselect", self.font),
             ("[Q]   quit  [R] reset", self.font),
+        ]
+        # Selected-tower panel (upgrades). Only shown when a placed tower is selected.
+        sel = next((t for t in s.towers if t.id == self.selected_tower_id), None) \
+            if self.selected_tower_id is not None else None
+        if sel is not None:
+            lines.append(("", self.font))
+            lines.append((f"--- {sel.type} #{sel.id} ---", self.font))
+            lines.append((f"range {sel.attack_radius:>3.0f}  rate {sel.attack_rate}", self.font))
+            lines.append((f"pierce {sel.pierce_max}  pops {sel.pop_count}", self.font))
+            flags = "".join([
+                "1" if sel.upgrade1 else ".",
+                "2" if sel.upgrade2 else ".",
+                "3" if sel.upgrade3 else ".",
+                "4" if sel.upgrade4 else ".",
+            ])
+            lines.append((f"upgrades {flags}", self.font))
+            avail = s.available_upgrades(sel.id)
+            for path in (1, 2):
+                entry = avail[path]
+                if entry is None:
+                    lines.append((f"  [{'U' if path == 1 else 'I'}] -- (n/a) --", self.font))
+                else:
+                    name, price = entry
+                    lines.append((f"  [{'U' if path == 1 else 'I'}] {name:<11} ${price}", self.font))
+            lines.append(("[S]   sell  (80%)", self.font))
+        lines += [
             ("", self.font),
             ("--- debug ---", self.font),
             ("[P]   pause/resume", self.font),

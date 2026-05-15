@@ -24,10 +24,13 @@ class Bloon:
     escaped: bool = False
     hit_this_frame: bool = False    # bloon can absorb at most one bullet per tick (Bloon.Update returns after first hit)
     # Freeze state. `freeze_duration` is set per-freeze (min of the freezer's
-    # freeze_len and the 100-frame AS hard cap).
+    # freeze_len and the 100-frame AS hard cap). `freezer_id` lets snap-freeze
+    # inheritance look up the freezer's permafrost upgrade flag.
     frozen: bool = False
     time_frozen: int = 0
     freeze_duration: int = 0
+    freezer_id: int = -1
+    snap_frozen: bool = False
 
     @property
     def alive(self) -> bool:

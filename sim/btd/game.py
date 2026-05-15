@@ -14,6 +14,7 @@ import numpy as np
 from .bloon import Bloon
 from .bullet import Bullet
 from .rounds import build_levels
+from .upgrades import UPGRADES, UpgradeSpec, next_path_upgrade
 from .constants import (
     BEACON_RANGE_FACTOR,
     BEACON_RATE_FACTOR,
@@ -26,6 +27,7 @@ from .constants import (
     LIVES_BY_DIFF,
     ROUND_END_GRACE_FRAMES,
     ROUND_END_TIMEOUT_FRAMES,
+    SELL_RATE,
     SPAWN_JITTER_RANGE,
     SPREAD_SHARDS,
     STARTING_MONEY,
@@ -148,10 +150,87 @@ class BloonsSim:
     def sell_tower(self, tower_id: int) -> bool:
         for i, tower in enumerate(self.towers):
             if tower.id == tower_id:
-                self.money += math.floor(0.8 * tower.spent_on_me)
+                self.money += math.floor(SELL_RATE * tower.spent_on_me)
                 del self.towers[i]
                 return True
         return False
+
+    # -- upgrade API ----------------------------------------------------------
+
+    def upgrade_tower(self, tower_id: int, upgrade_name: str) -> bool:
+        """Buy a specific upgrade for a tower. Returns True on success."""
+        tower = self._tower_by_id(tower_id)
+        if tower is None or upgrade_name not in UPGRADES:
+            return False
+        if not self._can_upgrade(tower, upgrade_name):
+            return False
+        spec = UPGRADES[upgrade_name]
+        price = self._price(spec.cost)
+        if price > self.money:
+            return False
+        self.money -= price
+        tower.spent_on_me += price
+        self._apply_upgrade(tower, upgrade_name, spec)
+        return True
+
+    def upgrade_path(self, tower_id: int, path: int) -> bool:
+        """Buy the next upgrade on `path` (1 or 2) for the tower."""
+        tower = self._tower_by_id(tower_id)
+        if tower is None:
+            return False
+        name = next_path_upgrade(
+            tower.type, path,
+            tower.upgrade1, tower.upgrade2, tower.upgrade3, tower.upgrade4,
+        )
+        if name is None:
+            return False
+        return self.upgrade_tower(tower_id, name)
+
+    def available_upgrades(self, tower_id: int) -> dict[int, tuple[str, int] | None]:
+        """Returns `{1: (name, price) or None, 2: (name, price) or None}`."""
+        tower = self._tower_by_id(tower_id)
+        if tower is None:
+            return {1: None, 2: None}
+        out: dict[int, tuple[str, int] | None] = {}
+        for path in (1, 2):
+            name = next_path_upgrade(
+                tower.type, path,
+                tower.upgrade1, tower.upgrade2, tower.upgrade3, tower.upgrade4,
+            )
+            out[path] = (name, self._price(UPGRADES[name].cost)) if name else None
+        return out
+
+    def _can_upgrade(self, tower, upgrade_name: str) -> bool:
+        if not upgrade_name.startswith(tower.type):
+            return False
+        suffix = upgrade_name[len(tower.type):]
+        if suffix == "1":
+            return not tower.upgrade1 and not tower.upgrade2
+        if suffix == "2":
+            return not tower.upgrade2 and not tower.upgrade4
+        if suffix == "3":
+            return tower.upgrade1 and not tower.upgrade3 and not tower.upgrade2
+        if suffix == "4":
+            return tower.upgrade2 and not tower.upgrade4
+        return False
+
+    def _apply_upgrade(self, tower, upgrade_name: str, spec: UpgradeSpec) -> None:
+        suffix = upgrade_name[len(tower.type):]
+        setattr(tower, f"upgrade{suffix}", True)
+        for attr, delta in spec.additive.items():
+            setattr(tower, attr, getattr(tower, attr) + delta)
+        for attr, value in spec.absolute.items():
+            setattr(tower, attr, value)
+        for attr, value in spec.flags.items():
+            setattr(tower, attr, value)
+        if spec.reset_tsls:
+            tower.time_since_last_shot = 0
+
+    def _tower_by_id(self, tower_id: int):
+        for t in self.towers:
+            if t.id == tower_id:
+                return t
+        return None
 
     def start_round(self) -> bool:
         """Begin the next round. Returns False if a round is still active."""
@@ -401,6 +480,7 @@ class BloonsSim:
                 icebreak=t.icebreak,
                 leadbreak=t.leadbreak,
                 freeze_len=t.freeze_len,
+                scale=t.bullet_scale,
             )
             self.bullets.append(bullet)
 
@@ -430,6 +510,7 @@ class BloonsSim:
                 shooter_id=t.id,
                 icebreak=t.icebreak,
                 leadbreak=t.leadbreak,
+                scale=t.bullet_scale,
             )
             bullet.arc_anchor_x = t.x
             bullet.arc_anchor_y = t.y
@@ -450,6 +531,7 @@ class BloonsSim:
             shooter_id=t.id,
             icebreak=t.icebreak,
             leadbreak=t.leadbreak,
+            scale=t.bullet_scale,
         )
         self.bullets.append(bullet)
 
@@ -545,6 +627,10 @@ class BloonsSim:
             bullet.vy = 0.0
             if bullet.explosion_radius > 0.0:
                 bullet.radius = bullet.explosion_radius
+            # Bomb upgrade2 (frag): spawn shards from the detonation point.
+            shooter = self._tower_by_id(bullet.shooter_id)
+            if shooter is not None and shooter.upgrade2:
+                self._spawn_frags(bullet.x, bullet.y, shooter)
         if bloon.frozen and not bullet.icebreak and bullet.type != "ice":
             return
         if bullet.type in ("bomb", "pineapple") and bloon.rank == 5:
@@ -570,6 +656,45 @@ class BloonsSim:
         bloon.frozen = True
         bloon.time_frozen = 0
         bloon.freeze_duration = min(bullet.freeze_len, 100)
+        bloon.freezer_id = bullet.shooter_id
+        shooter = self._tower_by_id(bullet.shooter_id)
+        if shooter is None:
+            return
+        # Permafrost (ice upgrade2): halve speed on freeze. AS gates with
+        # `speed == maxspeed`, preventing stacking on already-permafrosted bloons.
+        if shooter.upgrade2:
+            if bloon.speed == bloon.maxspeed and bloon.rank != 10:
+                bloon.speed /= 2.0
+        # Snap freeze (ice upgrade4): 39% chance to instantly pop the bloon.
+        # AS: `random(100) > 60` proc — i.e. roll in [61, 99] = 39 outcomes / 100.
+        if shooter.upgrade4:
+            if int(self.rng.integers(0, 100)) > 60:
+                bloon.snap_frozen = True
+                bloon.hits_remaining -= 1
+                if bloon.hits_remaining <= 0:
+                    self._pop(bloon, shooter.id)
+
+    def _spawn_frags(self, x: float, y: float, shooter) -> None:
+        # AS spawns frag bullets at the bomb's detonation point with vx/vy=0
+        # (the visual fan is in the Frags MovieClip keyframes). We synthesise
+        # an 8-way fan at a moderate speed so the AoE has a real footprint.
+        speed = 10.0
+        for i in range(SPREAD_SHARDS):
+            angle = (2.0 * math.pi * i) / SPREAD_SHARDS
+            ux = math.cos(angle)
+            uy = math.sin(angle)
+            bullet = Bullet.from_type(
+                type_="frag",
+                x=x + ux * 4.0,
+                y=y + uy * 4.0,
+                vx=ux * speed,
+                vy=uy * speed,
+                pierce_max=1,
+                shooter_id=shooter.id,
+                icebreak=False,
+                leadbreak=False,
+            )
+            self.bullets.append(bullet)
 
     def _pop(self, bloon: Bloon, shooter_id: int) -> None:
         bloon.popped = True
@@ -582,12 +707,26 @@ class BloonsSim:
                 break
         # Spawn children at parent's progress ± offset, inheriting jitter & branch.
         for child_rank, frame_offset in BLOON_CHILDREN.get(bloon.rank, []):
-            self.spawn_bloon(
+            child = self.spawn_bloon(
                 rank=child_rank,
                 branch=bloon.branch,
                 frame=bloon.frame + frame_offset,
                 jitter=(bloon.jitter_x, bloon.jitter_y),
             )
+            # Snap-freeze inheritance (AS NewBloon param7 + freezeMe(false)):
+            # children of a snap-frozen parent are born frozen and inherit the
+            # original freezer's permafrost effect. The chain stops here — the
+            # children's `snap_frozen` stays False, so grand-children spawn
+            # unfrozen unless they get a fresh snap-freeze hit.
+            if bloon.snap_frozen and child.rank not in (6, 9, 10):
+                child.frozen = True
+                child.time_frozen = 0
+                child.freeze_duration = bloon.freeze_duration
+                child.freezer_id = bloon.freezer_id
+                freezer = self._tower_by_id(bloon.freezer_id)
+                if freezer is not None and freezer.upgrade2:
+                    if child.speed == child.maxspeed and child.rank != 10:
+                        child.speed /= 2.0
 
     def _award_pop_money(self) -> None:
         # BloonsTD.PoppedOne: 1$ pre-r51, 1/3 chance r51-59, 1/5 chance r60+.

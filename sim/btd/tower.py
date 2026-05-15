@@ -23,6 +23,16 @@ class Tower:
     is_spread: bool = False    # fires N shards in a fan (tack, ice); no aimed bullet
     is_attacker: bool = True   # False for beacons — skip fire logic, still tick counter
     freeze_len: int = 0        # frames a frozen bloon stays frozen (ice only)
+    bullet_scale: float = 1.0  # multiplies bullet.radius and explosion_radius at fire time
+    # Upgrade flags. upgrade1 + upgrade3 form path 1; upgrade2 + upgrade4 form
+    # path 2. Path-locking lives in BloonsSim.upgrade_tower.
+    upgrade1: bool = False
+    upgrade2: bool = False
+    upgrade3: bool = False
+    upgrade4: bool = False
+    # Visual / behavioural flags flipped by upgrades.
+    transformed: bool = False  # blade tack, glaive boomerang, missile bomb, multishot spikeopult
+    laser: bool = False        # super monkey laser (upgrade3) / plasma (upgrade4)
     # Set by the beacon-buff refresh each frame. Read by _acquire_target /
     # _tick_towers when deciding effective range / rate.
     beacon_radius_active: bool = False

@@ -202,6 +202,20 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
       its buff radius. The `beacon_rate_active` flag is wired but not yet
       flipped (depends on the drums upgrade, deferred to upgrade system).
 - [ ] All listed tower types are now implemented.
+- [x] Tower upgrades (`btd/upgrades.py`): 28 upgrades (4 per tower; beacon3/4
+      omitted since they depend on monkey storm). Data-driven specs with
+      additive deltas, absolute setters, flag flips, and a `reset_tsls`
+      knob for transform upgrades. Path-locking matches AS (buying
+      `upgrade2` locks out `upgrade1`/`upgrade3` forever). Behavioural ties:
+      bomb upgrade2 spawns frags on detonation; ice upgrade2 (permafrost)
+      halves bloon speed post-thaw with proper freezer-id propagation to
+      children of snap-frozen parents; ice upgrade4 (snap freeze) procs at
+      AS-accurate 39% per hit; spikeopult upgrade4 flips `is_spread=True`
+      so the tower fires shards. `bullet_scale` flows from tower to bullet
+      to multiply radius and explosion_radius at creation.
+- [x] Upgrade API on `BloonsSim`: `upgrade_tower(id, name)`,
+      `upgrade_path(id, path)`, `available_upgrades(id)`. play.py hotkeys
+      [U] / [I] for path 1 / path 2 upgrades, [S] for sell.
 - [ ] Out-of-scope for the first RL iteration (no mid-round actions): placed
       items (spikes, glue, pineapple), monkey storm consumable. Sim API
       should leave room to add these later.

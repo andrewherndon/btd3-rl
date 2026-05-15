@@ -118,6 +118,9 @@ BULLET_STATS: Final = {
     # the bullet would stop at frame 1 (invisible). We match the visible arc.
     "boomerang": dict(lifespan=24, radius=6.0, explosion_radius=0.0),
     "bomb": dict(lifespan=18, radius=6.0, explosion_radius=30.0),
+    # Bomb-with-frag upgrade (bomb2): on detonation, spawn N frag shards.
+    # AS Bullet.Init: lifespan=5; not leadbreak / not icebreak.
+    "frag": dict(lifespan=5, radius=4.0, explosion_radius=0.0),
     "spikeopult": dict(lifespan=20, radius=6.0, explosion_radius=0.0),
     "super": dict(lifespan=20, radius=4.0, explosion_radius=0.0),
 }

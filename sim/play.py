@@ -11,6 +11,9 @@ Controls:
   6            select ice         ($425)
   7            select boomerang   ($515)
   8            select beacon      ($1000)
+  U            upgrade path 1 on the selected tower
+  I            upgrade path 2 on the selected tower
+  S            sell the selected tower (80% refund)
   Left click   place selected tower (or select existing)
   SPACE        start next round
   ESC          deselect tower-type
@@ -86,6 +89,16 @@ def main() -> None:
                 elif event.key == pygame.K_8:
                     view.selected_tower_type = "beacon"
                     view.selected_tower_id = None
+                elif event.key == pygame.K_u:
+                    if view.selected_tower_id is not None:
+                        sim.upgrade_path(view.selected_tower_id, 1)
+                elif event.key == pygame.K_i:
+                    if view.selected_tower_id is not None:
+                        sim.upgrade_path(view.selected_tower_id, 2)
+                elif event.key == pygame.K_s:
+                    if view.selected_tower_id is not None:
+                        sim.sell_tower(view.selected_tower_id)
+                        view.selected_tower_id = None
                 # --- debug controls ---
                 elif event.key == pygame.K_p:
                     view.paused = not view.paused
