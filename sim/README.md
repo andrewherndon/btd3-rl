@@ -227,8 +227,11 @@ Both rely on the same `BloonsSim` core; the gym `Env` is a thin wrapper.
 - [x] Full round table (`btd/rounds.py`): hardcoded rounds 1-50 from
       `BloonsTD.BuildLevels`, procedural rounds 51-149. `SimConfig.freeplay`
       gates play past round 50.
-- [ ] Per-rank bloon hitbox radii from extracted `inner` bounds (currently
-      placeholders in `constants.BLOON_RADIUS`).
+- [x] Per-rank bloon hitbox radii calibrated from extracted `inner` bbox
+      (sim/extract_bloon_hitboxes.py, paths/bloon_hitboxes.json). Values in
+      `constants.BLOON_RADIUS` are `max(half_w, half_h)` rounded; all ranks
+      stay as circle collisions. A more faithful AABB-vs-circle for MOAB /
+      ceramic is left for later — agent strategy doesn't hinge on it.
 - [x] Tower placement legality via a uniform buffer (`PATH_PLACEMENT_BUFFER`,
       currently 16 px) around the path centerline — bypasses the AS `Pathhit`
       rectangle extraction in favour of a numpy point-to-polyline distance.

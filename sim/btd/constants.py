@@ -53,11 +53,17 @@ BLOON_CHILDREN: Final = {
     10: [(9, 5), (9, 2), (9, -2), (9, -5)],
 }
 
-# Placeholder collision radii in px. Refine later from extracted bounds of
-# each rank's `inner` MovieClip.
+# Collision radii in px. Calibrated from frame-1 bbox of each rank's `inner`
+# MovieClip — see sim/extract_bloon_hitboxes.py and paths/bloon_hitboxes.json
+# (raw bboxes + offsets). Values here are `max(half_w, half_h)` rounded to int,
+# treating every rank as a circle. Note black is genuinely smaller in BTD3
+# (~50% of red in linear extent — confirmed visually). MOAB is elongated
+# (115x80 in true AABB), so a single radius mildly over-covers vertically and
+# under-covers horizontally; an AABB-vs-circle refactor would be more faithful
+# but the agent's strategy doesn't hinge on it.
 BLOON_RADIUS: Final = {
-    1: 12, 2: 13, 3: 14, 4: 13, 5: 14,
-    6: 14, 7: 15, 8: 16, 9: 30, 10: 60,
+    1: 19, 2: 21, 3: 22, 4: 24, 5: 10,
+    6: 19, 7: 21, 8: 23, 9: 23, 10: 57,
 }
 
 # Tower stats, from Tower.Init. attackRate in frames between shots; attackRadius

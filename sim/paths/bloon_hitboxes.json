@@ -1,0 +1,172 @@
+{
+  "1": {
+    "rank": 1,
+    "name": "red",
+    "inner_sprite_id": 155,
+    "bloon_sprite_id": 294,
+    "bbox_px": [
+      -19.0,
+      -43.234,
+      11.43,
+      -4.552
+    ],
+    "half_w": 15.215,
+    "half_h": 19.341,
+    "cx": -3.785,
+    "cy": -23.893,
+    "radius": 47.225
+  },
+  "2": {
+    "rank": 2,
+    "name": "blue",
+    "inner_sprite_id": 161,
+    "bloon_sprite_id": 285,
+    "bbox_px": [
+      -25.35,
+      -44.676,
+      9.595,
+      -2.35
+    ],
+    "half_w": 17.472,
+    "half_h": 21.163,
+    "cx": -7.878,
+    "cy": -23.513,
+    "radius": 51.367
+  },
+  "3": {
+    "rank": 3,
+    "name": "green",
+    "inner_sprite_id": 165,
+    "bloon_sprite_id": 286,
+    "bbox_px": [
+      -25.35,
+      -46.888,
+      11.537,
+      -2.35
+    ],
+    "half_w": 18.444,
+    "half_h": 22.269,
+    "cx": -6.906,
+    "cy": -24.619,
+    "radius": 53.302
+  },
+  "4": {
+    "rank": 4,
+    "name": "yellow",
+    "inner_sprite_id": 169,
+    "bloon_sprite_id": 287,
+    "bbox_px": [
+      -24.006,
+      -49.057,
+      13.529,
+      -1.139
+    ],
+    "half_w": 18.768,
+    "half_h": 23.959,
+    "cx": -5.238,
+    "cy": -25.098,
+    "radius": 54.616
+  },
+  "5": {
+    "rank": 5,
+    "name": "black",
+    "inner_sprite_id": 173,
+    "bloon_sprite_id": 288,
+    "bbox_px": [
+      -13.919,
+      -36.991,
+      1.818,
+      -16.862
+    ],
+    "half_w": 7.869,
+    "half_h": 10.064,
+    "cx": -6.051,
+    "cy": -26.926,
+    "radius": 39.523
+  },
+  "6": {
+    "rank": 6,
+    "name": "white",
+    "inner_sprite_id": 177,
+    "bloon_sprite_id": 289,
+    "bbox_px": [
+      -25.35,
+      -39.8,
+      5.267,
+      -2.35
+    ],
+    "half_w": 15.308,
+    "half_h": 18.725,
+    "cx": -10.042,
+    "cy": -21.075,
+    "radius": 47.188
+  },
+  "7": {
+    "rank": 7,
+    "name": "lead",
+    "inner_sprite_id": 180,
+    "bloon_sprite_id": 292,
+    "bbox_px": [
+      -25.35,
+      -44.676,
+      9.595,
+      -2.35
+    ],
+    "half_w": 17.472,
+    "half_h": 21.163,
+    "cx": -7.878,
+    "cy": -23.513,
+    "radius": 51.367
+  },
+  "8": {
+    "rank": 8,
+    "name": "rainbow",
+    "inner_sprite_id": 195,
+    "bloon_sprite_id": 293,
+    "bbox_px": [
+      -25.35,
+      -46.12,
+      15.225,
+      0.356
+    ],
+    "half_w": 20.287,
+    "half_h": 23.238,
+    "cx": -5.063,
+    "cy": -22.882,
+    "radius": 52.627
+  },
+  "9": {
+    "rank": 9,
+    "name": "ceramic",
+    "inner_sprite_id": 134,
+    "bloon_sprite_id": 291,
+    "bbox_px": [
+      -28.9,
+      -45.45,
+      3.35,
+      -0.3
+    ],
+    "half_w": 16.125,
+    "half_h": 22.575,
+    "cx": -12.775,
+    "cy": -22.875,
+    "radius": 53.86
+  },
+  "10": {
+    "rank": 10,
+    "name": "MOAB",
+    "inner_sprite_id": 191,
+    "bloon_sprite_id": 290,
+    "bbox_px": [
+      -77.254,
+      -58.29,
+      37.65,
+      21.147
+    ],
+    "half_w": 57.452,
+    "half_h": 39.718,
+    "cx": -19.802,
+    "cy": -18.571,
+    "radius": 96.778
+  }
+}
