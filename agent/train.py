@@ -15,7 +15,7 @@ from pathlib import Path
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 from btd.game import SimConfig
 from envs import BloonsEnv
@@ -61,10 +61,15 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--save-path", default="agent/models/maskable_ppo")
     p.add_argument("--eval-freq", type=int, default=10_000)
+    # SubprocVecEnv (multi-process) barely beats Dummy here: the main process
+    # serializes N Dict-obs + N action-masks every step, so IPC (Amdahl) caps
+    # the gain at ~1.15x on this env. Default to the simpler single-process env.
+    p.add_argument("--vec", choices=["dummy", "subproc"], default="dummy")
     args = p.parse_args()
 
-    # Parallel training envs for throughput; each is an independent game.
-    train_env = DummyVecEnv([make_env(args.difficulty) for _ in range(args.n_envs)])
+    # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
+    VecEnv = SubprocVecEnv if args.vec == "subproc" else DummyVecEnv
+    train_env = VecEnv([make_env(args.difficulty) for _ in range(args.n_envs)])
     # Separate eval env (single game) for periodic held-out-style evaluation.
     eval_env = DummyVecEnv([make_env(args.difficulty)])
 
