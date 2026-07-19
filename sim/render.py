@@ -45,6 +45,18 @@ TOWER_COLORS: dict[str, tuple[int, int, int]] = {
     "beacon": (200, 200, 60),
 }
 
+# Short labels drawn under each tower (kept compact so they don't overlap).
+TOWER_LABELS: dict[str, str] = {
+    "dart": "dart",
+    "tack": "tack",
+    "ice": "ice",
+    "bomb": "bomb",
+    "spikeopult": "spike",
+    "super": "super",
+    "boomerang": "boom",
+    "beacon": "bcn",
+}
+
 PATH_COLOR = (190, 165, 110)
 PATH_EDGE_COLOR = (140, 90, 60)
 GRASS_COLOR = (110, 160, 90)
@@ -82,6 +94,7 @@ class PygameRenderer:
         )
         self.font = pygame.font.SysFont("menlo", int(14 * (scale / 2)))
         self.big_font = pygame.font.SysFont("menlo", int(20 * (scale / 2)), bold=True)
+        self.label_font = pygame.font.SysFont("menlo", max(8, int(9 * (scale / 2))))
         self.clock = pygame.time.Clock()
         # Highlight target for tower placement preview, if any.
         self.selected_tower_type: Optional[str] = None
@@ -161,6 +174,8 @@ class PygameRenderer:
             rect = pygame.Rect(cx - size // 2, cy - size // 2, size, size)
             pygame.draw.rect(self.screen, color, rect)
             pygame.draw.rect(self.screen, (30, 30, 30), rect, 1)
+            # White label under the tower, with a dark shadow for contrast.
+            self._draw_tower_label(t.type, cx, cy + size // 2 + 1)
             # Mark beacon-buffed towers with a soft yellow halo so the buff is
             # visible at a glance.
             if t.beacon_radius_active or t.beacon_rate_active:
@@ -180,6 +195,14 @@ class PygameRenderer:
     def _draw_range_ring(self, cx: int, cy: int, radius_stage: float) -> None:
         r = int(radius_stage * self.scale)
         pygame.draw.circle(self.screen, (255, 255, 255), (cx, cy), r, 1)
+
+    def _draw_tower_label(self, tower_type: str, cx: int, top_y: int) -> None:
+        label = TOWER_LABELS.get(tower_type, tower_type)
+        white = self.label_font.render(label, True, (255, 255, 255))
+        shadow = self.label_font.render(label, True, (20, 20, 20))
+        tx = cx - white.get_width() // 2
+        self.screen.blit(shadow, (tx + 1, top_y + 1))
+        self.screen.blit(white, (tx, top_y))
 
     def _draw_bullets(self) -> None:
         for b in self.sim.bullets:
