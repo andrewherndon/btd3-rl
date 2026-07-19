@@ -62,6 +62,12 @@ class BloonsSim:
 
         # Path data, keyed by branch. Track 3 has one branch.
         self.paths: dict[int, np.ndarray] = self._load_paths(self.config.track)
+        # Cached path-length lookups for the hot per-frame loops (targeting and
+        # movement), so they don't call _path()/len() per bloon per tower. Values
+        # are exact ints, so arithmetic using them is bit-identical to before.
+        self._path_len: dict[int, int] = {br: len(p) for br, p in self.paths.items()}
+        self._path_maxidx: dict[int, int] = {br: len(p) - 1 for br, p in self.paths.items()}
+        self._path_len_clamped: dict[int, int] = {br: max(1, len(p)) for br, p in self.paths.items()}
         # Bullet arcs keyed by bullet type. None if the bullet integrates via
         # vx/vy. Boomerang is currently the only one; super-laser etc. could
         # join later if they have keyframed trajectories.
@@ -405,8 +411,8 @@ class BloonsSim:
         return bloon
 
     def _refresh_position(self, b: Bloon) -> None:
-        path = self._path(b.branch)
-        idx = min(int(round(b.frame)), len(path) - 1)
+        path = self.paths[b.branch]
+        idx = min(int(round(b.frame)), self._path_maxidx[b.branch])
         b.x = path[idx, 0] + b.jitter_x
         b.y = path[idx, 1] + b.jitter_y
 
@@ -471,26 +477,31 @@ class BloonsSim:
         ar_sq = t.attack_radius * t.attack_radius
         if t.beacon_radius_active:
             ar_sq *= BEACON_RANGE_FACTOR
+        # Hoist per-tower constants and cached path lengths out of the bloon loop.
+        # Division kept (not a reciprocal) so `progress` is bit-identical.
+        tx, ty = t.x, t.y
+        icebreak = t.icebreak
+        first = t.ai_mode == "first"
+        plc = self._path_len_clamped
         best: Optional[Bloon] = None
-        best_progress = -1.0 if t.ai_mode == "first" else 2.0
+        best_progress = -1.0 if first else 2.0
         for b in self.bloons:
-            if not b.alive:
+            if b.popped or b.escaped:            # inlined `not b.alive`
                 continue
-            if b.frozen and not t.icebreak:
+            if b.frozen and not icebreak:
                 continue
-            dx = b.x - t.x
-            dy = b.y - t.y
+            dx = b.x - tx
+            dy = b.y - ty
             if dx * dx + dy * dy >= ar_sq:
                 continue
-            progress = b.frame / max(1, len(self._path(b.branch)))
-            if t.ai_mode == "first":
+            progress = b.frame / plc[b.branch]
+            if first:
                 if progress > best_progress:
                     best_progress = progress
                     best = b
-            else:
-                if progress < best_progress:
-                    best_progress = progress
-                    best = b
+            elif progress < best_progress:
+                best_progress = progress
+                best = b
         return best
 
     def _shoot_spread(self, t: Tower) -> None:
@@ -591,8 +602,9 @@ class BloonsSim:
                 b.y += b.vy
 
     def _tick_bloons(self) -> None:
+        path_len = self._path_len
         for b in self.bloons:
-            if not b.alive:
+            if b.popped or b.escaped:            # inlined `not b.alive`
                 continue
             b.hit_this_frame = False
             if b.frozen:
@@ -605,8 +617,7 @@ class BloonsSim:
                 self._refresh_position(b)
                 continue
             b.frame += b.speed
-            path_len = len(self._path(b.branch))
-            if int(round(b.frame)) >= path_len:
+            if int(round(b.frame)) >= path_len[b.branch]:
                 b.escaped = True
                 self._on_escape(b)
                 continue
@@ -620,9 +631,15 @@ class BloonsSim:
             if bullet.is_dead:
                 continue
             for bloon in self.bloons:
-                if not bloon.alive or bloon.hit_this_frame:
+                if bloon.popped or bloon.escaped or bloon.hit_this_frame:
                     continue
-                if self._circle_hit(bullet, bloon):
+                # Inlined _circle_hit. bullet.radius is read fresh (NOT cached):
+                # _on_hit mutates it mid-loop for bomb explosions, and later
+                # bloons this frame must see the enlarged radius.
+                dx = bullet.x - bloon.x
+                dy = bullet.y - bloon.y
+                r = bullet.radius + bloon.radius
+                if dx * dx + dy * dy <= r * r:
                     bloon.hit_this_frame = True
                     bullet.pierce_count += 1
                     self._on_hit(bullet, bloon)
