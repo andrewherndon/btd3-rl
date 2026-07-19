@@ -40,11 +40,17 @@ def build_action_mask(sim: BloonsSim, cell_valid: np.ndarray) -> np.ndarray:
     # PLACE(type, cell): affordable type AND valid cell. The PLACE block is a
     # flat (N_TYPES x N_CELLS) grid; fill row-by-type with cell_valid gated on
     # affordability. This is where per-(type,cell) coupling is expressed.
-    place = mask[A.PLACE_OFF:A.PLACE_END].reshape(A.N_TYPES, A.N_CELLS)
-    for t, type_name in enumerate(A.TOWER_TYPES):
-        price = sim._price(TOWER_STATS[type_name]["cost"])
-        if price <= sim.money:
-            place[t] = cell_valid
+    #
+    # Safety net: forbid placing beyond MAX_TOWERS so the agent can never create
+    # a tower that the observation can't represent or upgrade/sell can't address
+    # (that blind spot broke the Markov property in early runs). MAX_TOWERS is
+    # set high enough that this rarely binds and does not dictate strategy.
+    if len(sim.towers) < A.MAX_TOWERS:
+        place = mask[A.PLACE_OFF:A.PLACE_END].reshape(A.N_TYPES, A.N_CELLS)
+        for t, type_name in enumerate(A.TOWER_TYPES):
+            price = sim._price(TOWER_STATS[type_name]["cost"])
+            if price <= sim.money:
+                place[t] = cell_valid
 
     # UPGRADE(slot, path): slot holds a tower, path has a next upgrade, afford.
     for slot, tower in enumerate(sim.towers[:A.MAX_TOWERS]):

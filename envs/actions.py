@@ -31,8 +31,11 @@ GRID_COLS = 640 // CELL_SIZE          # 40
 GRID_ROWS = 480 // CELL_SIZE          # 30
 N_CELLS = GRID_COLS * GRID_ROWS       # 1200
 
-# Cap on towers the env represents (obs rows and upgrade/sell slots).
-MAX_TOWERS = 20
+# Cap on towers the env represents (obs rows and upgrade/sell slots). Set well
+# above what actually binds in play (agents reached ~33) so it removes the
+# "towers past the cap are invisible/unmanageable" blind spot WITHOUT imposing a
+# tower-count strategy. A placement guard in mask.py enforces it as a safety net.
+MAX_TOWERS = 64
 
 # --- flat index block boundaries ------------------------------------------
 START_ROUND = 0
