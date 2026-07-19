@@ -9,3 +9,6 @@ __pycache__/
 # Design/scratch notes kept local, not tracked.
 RL_DESIGN.md
 thoughts.txt
+
+# Trained model checkpoints.
+agent/models/
