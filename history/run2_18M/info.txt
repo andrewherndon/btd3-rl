@@ -1,0 +1,20 @@
+run2 — overnight "does more steps help?" (same config as run1)
+dates: 2026-07-18 -> 2026-07-19
+code commit: 8b5b753  (MAX_TOWERS=20, N_ACTIONS=9661)  -> git checkout to replay
+
+command:
+  agent/train.py --timesteps 20000000 --n-envs 8 --eval-freq 500000 \
+    --save-path agent/models/run2/model
+stopped ~18M steps (plateaued, killed manually). fps ~314.
+final rollout: ep_rew_mean ~20, ep_len_mean ~412, explained_variance 0.985.
+
+eval (30 held-out seeds, deterministic):
+  win 0/30 ; round reached mean 37.1 / median 37 / min 37 / max 38 ; reward 25.1
+
+behavior:
+  - plateaued vs run1: wall moved only 34 -> 37 for 18x the steps.
+  - dies at round 37 = first MOAB (rank 10, 130 hits), near-zero variance.
+  - buy/sell money churn at rounds 30+ (bleeds money to sell-back), inflating
+    episode length.
+
+model: best_model.zip  (MaskablePPO, MultiInputPolicy)

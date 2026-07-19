@@ -12,3 +12,6 @@ thoughts.txt
 
 # Trained model checkpoints.
 agent/models/
+
+# Archived model checkpoints (large binaries kept local, not tracked).
+history/**/*.zip

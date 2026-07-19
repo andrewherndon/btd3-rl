@@ -1,0 +1,17 @@
+run1 — first real training run
+date: 2026-07-18
+code commit: 8b5b753  (MAX_TOWERS=20, N_ACTIONS=9661)  -> git checkout to replay
+
+command:
+  agent/train.py --timesteps 1000000 --n-envs 8 --difficulty easy
+hyperparams: n_steps 2048, batch 256, n_epochs 10, lr 3e-4,
+             gamma 0.995, gae_lambda 0.95, clip 0.2, ent_coef 0.01,
+             net_arch pi/vf [256,256]
+
+eval (30 held-out seeds, deterministic):
+  win 0/30 ; round reached mean 34.3 / median 33 / min 33 / max 40 ; reward 22.3
+
+behavior: builds a working defense (huge jump over untrained models that just
+die at r3-6). walls at rounds 33-34.
+
+model: best_model.zip  (MaskablePPO, MultiInputPolicy)
