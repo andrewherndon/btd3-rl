@@ -4,3 +4,7 @@ Decompiled-Limited/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Design/scratch notes kept local, not tracked.
+RL_DESIGN.md
+thoughts.txt

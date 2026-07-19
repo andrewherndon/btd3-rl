@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "btd"
+version = "0.1.0"
+description = "BTD3 simulation + RL environment"
+requires-python = ">=3.11"
+# The sim core depends only on numpy (see OBJECTIVE.md dependency direction).
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+# Visualization / interactive playtest.
+render = ["pygame-ce"]
+# RL training stack. Gymnasium wraps the sim; MaskablePPO lives in sb3-contrib.
+rl = ["gymnasium>=0.29", "sb3-contrib>=2.0", "torch"]
+
+# `btd` lives under sim/ and `envs` at the repo root; map both import names to
+# their directories so an editable install exposes them regardless of cwd.
+[tool.setuptools]
+packages = ["btd", "envs"]
+
+[tool.setuptools.package-dir]
+btd = "sim/btd"
+envs = "envs"
