@@ -3,6 +3,7 @@ Decompiled/
 Decompiled-Limited/
 __pycache__/
 *.pyc
+*.egg-info/
 .DS_Store
 
 # Design/scratch notes kept local, not tracked.
