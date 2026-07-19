@@ -102,6 +102,9 @@ class PygameRenderer:
         self.mouse_pos: tuple[int, int] = (0, 0)
         # Interactive playtest state; driven by play.py.
         self.paused: bool = False
+        # Optional rolling action/event log, drawn top-left if non-empty.
+        # Populated by the caller (e.g. watch.py); play.py leaves it empty.
+        self.event_log: list[str] = []
         # Cached path render — only rebuilt when the sim instance changes.
         self._path_surface: Optional[pygame.Surface] = None
         self._path_surface_sim_id: Optional[int] = None
@@ -127,6 +130,7 @@ class PygameRenderer:
         self._draw_bloons()
         self._draw_placement_preview()
         self._draw_hud()
+        self._draw_event_log()
         pygame.display.flip()
 
     # -- pieces ---------------------------------------------------------------
@@ -176,6 +180,8 @@ class PygameRenderer:
             pygame.draw.rect(self.screen, (30, 30, 30), rect, 1)
             # White label under the tower, with a dark shadow for contrast.
             self._draw_tower_label(t.type, cx, cy + size // 2 + 1)
+            # Upgrade pips above the tower (path1 cyan, path2 gold).
+            self._draw_upgrade_pips(t, cx, cy - size // 2 - 1)
             # Mark beacon-buffed towers with a soft yellow halo so the buff is
             # visible at a glance.
             if t.beacon_radius_active or t.beacon_rate_active:
@@ -203,6 +209,47 @@ class PygameRenderer:
         tx = cx - white.get_width() // 2
         self.screen.blit(shadow, (tx + 1, top_y + 1))
         self.screen.blit(white, (tx, top_y))
+
+    def _draw_upgrade_pips(self, tower, cx: int, bottom_y: int) -> None:
+        """Row of dots above the tower: 2 for path1 (cyan), 2 for path2 (gold).
+        Filled = purchased, hollow = not. Nothing drawn for an un-upgraded tower."""
+        p1 = int(tower.upgrade1) + int(tower.upgrade2)
+        p2 = int(tower.upgrade3) + int(tower.upgrade4)
+        if p1 == 0 and p2 == 0:
+            return
+        r = max(2, int(1.6 * self.scale))
+        gap = 2 * r + 2
+        specs = [
+            ((90, 200, 255), p1 >= 1), ((90, 200, 255), p1 >= 2),
+            ((255, 200, 80), p2 >= 1), ((255, 200, 80), p2 >= 2),
+        ]
+        y = bottom_y - r
+        x0 = cx - (gap * len(specs)) // 2 + gap // 2
+        for i, (col, filled) in enumerate(specs):
+            px = x0 + i * gap
+            if filled:
+                pygame.draw.circle(self.screen, col, (px, y), r)
+                pygame.draw.circle(self.screen, (20, 20, 20), (px, y), r, 1)
+            else:
+                pygame.draw.circle(self.screen, (70, 70, 70), (px, y), r, 1)
+
+    def _draw_event_log(self) -> None:
+        """Rolling list of recent actions, top-left, on a translucent panel.
+        Only shown when the caller has populated `event_log`."""
+        if not self.event_log:
+            return
+        entries = self.event_log[-8:]
+        line_h = self.font.get_height() + 2
+        pad, w = 6, 240
+        h = line_h * len(entries) + pad * 2
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 150))
+        self.screen.blit(panel, (4, 4))
+        y = 4 + pad
+        for line in entries:
+            surf = self.font.render(line, True, (235, 235, 235))
+            self.screen.blit(surf, (4 + pad, y))
+            y += line_h
 
     def _draw_bullets(self) -> None:
         for b in self.sim.bullets:

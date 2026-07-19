@@ -73,16 +73,6 @@ def choose_action(model, sim, cell_valid, econ_streak, deterministic) -> int:
     return int(action)
 
 
-def apply_economic(sim: BloonsSim, act) -> None:
-    if act.kind == Kind.PLACE:
-        x, y = cell_to_xy(act.b)
-        sim.place_tower(act.tower_type, x, y)
-    elif act.kind == Kind.UPGRADE and act.a < len(sim.towers):
-        sim.upgrade_path(sim.towers[act.a].id, act.b)
-    elif act.kind == Kind.SELL and act.a < len(sim.towers):
-        sim.sell_tower(sim.towers[act.a].id)
-
-
 def _set_caption(speed: float) -> None:
     pygame.display.set_caption(f"BTD3 — agent replay — {speed:g}x")
 
@@ -147,6 +137,7 @@ def main() -> None:
             econ_streak = 0
             lives_before = sim.lives
             sim.start_round()
+            renderer.event_log.append(f"> round {sim.round} ({len(sim.towers)} towers)")
             print(f"round {sim.round}: {len(sim.towers)} towers, ${sim.money}")
             while sim.in_round and not sim.game_over and state["running"]:
                 pump_events(state)
@@ -164,7 +155,22 @@ def main() -> None:
             if args.max_rounds and sim.round >= args.max_rounds:
                 break
         else:
-            apply_economic(sim, act)
+            log = None
+            if act.kind == Kind.PLACE:
+                x, y = cell_to_xy(act.b)
+                if sim.place_tower(act.tower_type, x, y) != -1:
+                    log = f"+ {act.tower_type} @({x:.0f},{y:.0f})"
+            elif act.kind == Kind.UPGRADE and act.a < len(sim.towers):
+                t = sim.towers[act.a]
+                entry = sim.available_upgrades(t.id)[act.b]  # (name, price) before buy
+                if sim.upgrade_path(t.id, act.b) and entry is not None:
+                    log = f"up #{t.id} -> {entry[0]}"
+            elif act.kind == Kind.SELL and act.a < len(sim.towers):
+                t = sim.towers[act.a]
+                if sim.sell_tower(t.id):
+                    log = f"- sell {t.type} #{t.id}"
+            if log:
+                renderer.event_log.append(log)
             econ_streak += 1
             renderer.draw()
             tick(min(int(args.shop_fps * max(state["speed"], 1)), 60))
