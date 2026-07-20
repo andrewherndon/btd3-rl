@@ -27,6 +27,10 @@ ROUND_CLEAR_BONUS = 1.0      # dense progress: survived one more round
 LIFE_PENALTY = 0.1           # per life lost in a round
 WIN_BONUS = 10.0             # reached the win condition (round 50)
 LOSS_PENALTY = -1.0          # lives hit 0
+# Tiny cost per economic action (place/upgrade/sell). Gives the agent a gradient
+# against reward-neutral buy/sell churn: churn is many actions, a real build is
+# few, so a per-action cost hits churn hardest without dictating tower choice.
+ECON_ACTION_COST = 0.01
 
 # Truncation backstops (not part of the MDP; guard against pathological loops).
 MAX_ECON_PER_ROUND = 60      # forced START_ROUND after this many buys/sells
@@ -41,6 +45,7 @@ class BloonsEnv(gym.Env):
         config: Optional[SimConfig] = None,
         max_econ_per_round: int = MAX_ECON_PER_ROUND,
         max_steps: int = MAX_STEPS,
+        econ_action_cost: float = ECON_ACTION_COST,
     ) -> None:
         super().__init__()
         # Template config; the per-episode seed is filled in at reset() for
@@ -48,6 +53,7 @@ class BloonsEnv(gym.Env):
         self._cfg_template = config or SimConfig()
         self.max_econ_per_round = max_econ_per_round
         self.max_steps = max_steps
+        self.econ_action_cost = econ_action_cost
 
         self.observation_space = make_observation_space()
         self.action_space = spaces.Discrete(A.N_ACTIONS)
@@ -81,17 +87,19 @@ class BloonsEnv(gym.Env):
         if act.kind == Kind.START_ROUND:
             reward, terminated = self._play_round()
             self._econ_streak = 0
-        elif act.kind == Kind.PLACE:
-            x, y = cell_to_xy(act.b)
-            self.sim.place_tower(act.tower_type, x, y)
-            self._econ_streak += 1
-        elif act.kind == Kind.UPGRADE:
-            if act.a < len(self.sim.towers):
-                self.sim.upgrade_path(self.sim.towers[act.a].id, act.b)
-            self._econ_streak += 1
-        elif act.kind == Kind.SELL:
-            if act.a < len(self.sim.towers):
-                self.sim.sell_tower(self.sim.towers[act.a].id)
+        else:
+            # Economic action: pay the small per-action cost (anti-churn), then
+            # apply it. START_ROUND is never taxed — we want to encourage progress.
+            reward = -self.econ_action_cost
+            if act.kind == Kind.PLACE:
+                x, y = cell_to_xy(act.b)
+                self.sim.place_tower(act.tower_type, x, y)
+            elif act.kind == Kind.UPGRADE:
+                if act.a < len(self.sim.towers):
+                    self.sim.upgrade_path(self.sim.towers[act.a].id, act.b)
+            elif act.kind == Kind.SELL:
+                if act.a < len(self.sim.towers):
+                    self.sim.sell_tower(self.sim.towers[act.a].id)
             self._econ_streak += 1
 
         truncated = self._steps >= self.max_steps
