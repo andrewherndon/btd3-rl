@@ -30,7 +30,9 @@ LOSS_PENALTY = -1.0          # lives hit 0
 # Tiny cost per economic action (place/upgrade/sell). Gives the agent a gradient
 # against reward-neutral buy/sell churn: churn is many actions, a real build is
 # few, so a per-action cost hits churn hardest without dictating tower choice.
-ECON_ACTION_COST = 0.01
+# NOTE: this also taxes productive buying; too high and the agent hoards money /
+# under-builds (0.01 regressed round-reached 34->29 at 1M). Kept small.
+ECON_ACTION_COST = 0.005
 
 # Truncation backstops (not part of the MDP; guard against pathological loops).
 MAX_ECON_PER_ROUND = 60      # forced START_ROUND after this many buys/sells

@@ -20,7 +20,7 @@ from envs import BloonsEnv
 
 
 def run_episodes(model, env, seeds, deterministic) -> dict:
-    rounds, lives, rewards, wins = [], [], [], 0
+    rounds, lives, rewards, money, wins = [], [], [], [], 0
     for seed in seeds:
         obs, _ = env.reset(seed=int(seed))
         done, total = False, 0.0
@@ -34,11 +34,13 @@ def run_episodes(model, env, seeds, deterministic) -> dict:
         rounds.append(info["round"])
         lives.append(info["lives"])
         rewards.append(total)
+        money.append(info["money"])           # leftover money at game end
         wins += int(info["won"])
     return {
         "rounds": np.array(rounds),
         "lives": np.array(lives),
         "rewards": np.array(rewards),
+        "money": np.array(money),
         "wins": wins,
         "n": len(seeds),
     }
@@ -67,6 +69,8 @@ def main() -> None:
     print(f"round reached    : mean {rounds.mean():.1f}  median {np.median(rounds):.0f}"
           f"  min {rounds.min()}  max {rounds.max()}")
     print(f"lives remaining  : mean {res['lives'].mean():.1f}")
+    print(f"money at end     : mean ${res['money'].mean():.0f}  "
+          f"(high => hoarding / under-building)")
     print(f"reward           : mean {res['rewards'].mean():.2f}"
           f"  (min {res['rewards'].min():.1f}  max {res['rewards'].max():.1f})")
     # Round-reached distribution, quartiles — quick sense of consistency.
