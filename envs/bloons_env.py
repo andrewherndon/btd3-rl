@@ -15,6 +15,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
+from btd.constants import STARTING_MONEY
 from btd.game import BloonsSim, SimConfig
 
 from . import actions as A
@@ -27,12 +28,20 @@ ROUND_CLEAR_BONUS = 1.0      # dense progress: survived one more round
 LIFE_PENALTY = 0.1           # per life lost in a round
 WIN_BONUS = 10.0             # reached the win condition (round 50)
 LOSS_PENALTY = -1.0          # lives hit 0
-# Tiny cost per economic action (place/upgrade/sell). Gives the agent a gradient
-# against reward-neutral buy/sell churn: churn is many actions, a real build is
-# few, so a per-action cost hits churn hardest without dictating tower choice.
-# NOTE: this also taxes productive buying; too high and the agent hoards money /
-# under-builds (0.01 regressed round-reached 34->29 at 1M). Kept small.
-ECON_ACTION_COST = 0.005
+# Per-economic-action cost, OFF by default (0.0). A blanket cost failed to
+# separate "stop waste" from "keep building" (0.01 -> hoarding, 0.005 -> churn
+# returns). Churn/hoarding turned out to be *symptoms* of the agent having no
+# learned use for late-game money (it can't beat MOABs), so we fix that upstream
+# with a curriculum, not this knob. Kept tunable, disabled.
+ECON_ACTION_COST = 0.0
+
+# Curriculum: fraction of TRAINING episodes that start mid-game at a hard round
+# (scaled money, fresh board) so the agent gets dense experience at rounds it
+# rarely reaches from round 1 (esp. MOABs at 37+). 0.0 = always start at round 1;
+# eval uses 0.0 so its metrics stay on honest full games.
+CURRICULUM_P = 0.0
+CURRICULUM_MIN_ROUND = 20
+CURRICULUM_MAX_ROUND = 38
 
 # Truncation backstops (not part of the MDP; guard against pathological loops).
 MAX_ECON_PER_ROUND = 60      # forced START_ROUND after this many buys/sells
@@ -48,6 +57,9 @@ class BloonsEnv(gym.Env):
         max_econ_per_round: int = MAX_ECON_PER_ROUND,
         max_steps: int = MAX_STEPS,
         econ_action_cost: float = ECON_ACTION_COST,
+        curriculum_p: float = CURRICULUM_P,
+        curriculum_min: int = CURRICULUM_MIN_ROUND,
+        curriculum_max: int = CURRICULUM_MAX_ROUND,
     ) -> None:
         super().__init__()
         # Template config; the per-episode seed is filled in at reset() for
@@ -56,6 +68,9 @@ class BloonsEnv(gym.Env):
         self.max_econ_per_round = max_econ_per_round
         self.max_steps = max_steps
         self.econ_action_cost = econ_action_cost
+        self.curriculum_p = curriculum_p
+        self.curriculum_min = curriculum_min
+        self.curriculum_max = curriculum_max
 
         self.observation_space = make_observation_space()
         self.action_space = spaces.Discrete(A.N_ACTIONS)
@@ -76,9 +91,24 @@ class BloonsEnv(gym.Env):
         sim_seed = seed if seed is not None else int(self.np_random.integers(0, 2**31 - 1))
         self.sim = BloonsSim(replace(self._cfg_template, seed=sim_seed))
         self.cell_valid = compute_cell_validity(self.sim)
+        # Curriculum start: sometimes begin mid-game at a hard round with scaled
+        # money and a fresh board, so the agent gets dense practice at rounds it
+        # rarely reaches from round 1. Off (curriculum_p=0) for eval.
+        if self.curriculum_p > 0.0 and self.np_random.random() < self.curriculum_p:
+            r = int(self.np_random.integers(self.curriculum_min, self.curriculum_max + 1))
+            self.sim.debug_set_round(r)                 # next start_round plays round r
+            self.sim.money = self._accumulated_money(r)
         self._econ_streak = 0
         self._steps = 0
         return encode(self.sim), self._info()
+
+    @staticmethod
+    def _accumulated_money(round_num: int) -> int:
+        """Money a never-spending player would hold entering round `round_num`:
+        starting cash + all prior round-end bonuses (99 + round). Generous by
+        design so the curriculum agent can afford to experiment with counters."""
+        bonus = sum(99 + k for k in range(1, round_num))
+        return STARTING_MONEY + bonus
 
     def step(self, action: int) -> tuple[dict, float, bool, bool, dict]:
         self._steps += 1

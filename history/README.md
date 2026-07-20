@@ -70,3 +70,36 @@ Eval = 30 held-out seeds (base 1_000_000), deterministic policy, easy.
 - **Churn fix deferred.** Try the representation fix first (it may remove the
   churn). If it persists, add a tiny per-decision step cost (efficiency nudge) —
   never a money penalty (that re-imposes strategy and risks cowardly policies).
+
+## The churn -> hoarding -> exploration arc (2026-07-19)
+
+After `MAX_TOWERS=64` (run3, 1M): churn/over-stacking persisted. Chased it with a
+blanket per-economic-action cost and learned it's a **blunt instrument that can't
+win**:
+
+| change | result |
+|---|---|
+| no penalty (run3, MAX_TOWERS=64) | churn + 15-tower exact-stacks at the best cell |
+| econ cost 0.01 (run4, 1M) | churn gone, but **hoards ~$5049**, round-reached **28.6** (regressed from 34) |
+| econ cost 0.005 (run5, 5M) | **churn returns**, round ~33 |
+
+The insight (from watching + the money metric): **churn and hoarding are the same
+symptom** — the agent has *no learned productive use for late-game money* because
+it never discovered how to beat a MOAB (rank 10, 130 hits, first at round 37). No
+penalty -> it wastes the surplus (churn); with penalty -> it sits on it (hoard).
+Both starve it of the firepower to break the **round-37 MOAB wall**.
+
+Root cause = a **hard-exploration + long-horizon-credit-assignment** problem
+(shape of Montezuma's Revenge): the agent is stuck in a cheap-dart-spam local
+optimum, rarely reaches MOABs (so gets ~no experience fighting them), and won't
+risk expensive/different towers (bomb, super) whose payoff is distant.
+
+Decisions:
+- **Reverted the econ penalty** (symptom-whacking; every value regressed us).
+- **Added a curriculum** (`envs/bloons_env.py`): a fraction of *training* episodes
+  start mid-game at a hard round (default rounds 20-38) with income-scaled money
+  and a fresh board, so the agent gets *dense* MOAB-era practice. Eval stays on
+  full round-1 games (`curriculum_p=0`) so metrics remain honest.
+- Note on reward shaping: a sell-only penalty was considered but declined — it
+  still shapes strategy (biases against selling), and the real fix is upstream
+  (let the agent *discover* MOAB counters via curriculum), not more reward hacks.
