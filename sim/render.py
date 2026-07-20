@@ -67,6 +67,8 @@ HUD_BORDER = (60, 60, 60)
 HUD_TEXT = (30, 30, 30)
 BULLET_COLOR = (240, 240, 240)
 RANGE_RING = (255, 255, 255, 60)  # not used directly (no alpha on plain draw)
+RECENT_BUY_OUTLINE = (80, 170, 255)   # blue flash on a just-bought/upgraded tower
+RECENT_BUY_FRAMES = 20                 # render frames the flash lasts
 
 
 class PygameRenderer:
@@ -102,9 +104,12 @@ class PygameRenderer:
         self.mouse_pos: tuple[int, int] = (0, 0)
         # Interactive playtest state; driven by play.py.
         self.paused: bool = False
-        # Optional rolling action/event log, drawn top-left if non-empty.
-        # Populated by the caller (e.g. watch.py); play.py leaves it empty.
+        # Optional rolling action/event log, drawn top-right of the stage if
+        # non-empty. Populated by the caller (e.g. watch.py); play.py leaves it
+        # empty.
         self.event_log: list[str] = []
+        # tower_id -> render frames left to flash a "just bought/upgraded" outline.
+        self._recent_buy: dict[int, int] = {}
         # Cached path render — only rebuilt when the sim instance changes.
         self._path_surface: Optional[pygame.Surface] = None
         self._path_surface_sim_id: Optional[int] = None
@@ -178,6 +183,13 @@ class PygameRenderer:
             rect = pygame.Rect(cx - size // 2, cy - size // 2, size, size)
             pygame.draw.rect(self.screen, color, rect)
             pygame.draw.rect(self.screen, (30, 30, 30), rect, 1)
+            # Blue flash for a few frames after a tower is bought/upgraded.
+            if t.id in self._recent_buy:
+                pygame.draw.rect(
+                    self.screen, RECENT_BUY_OUTLINE,
+                    rect.inflate(int(6 * self.scale), int(6 * self.scale)),
+                    max(2, int(self.scale)),
+                )
             # White label under the tower, with a dark shadow for contrast.
             self._draw_tower_label(t.type, cx, cy + size // 2 + 1)
             # Upgrade pips above the tower (path1 cyan, path2 gold).
@@ -191,6 +203,15 @@ class PygameRenderer:
                 )
             if self.selected_tower_id == t.id:
                 self._draw_range_ring(cx, cy, self._effective_range(t))
+        # Age out recent-buy flashes: one render frame per draw() call.
+        for tid in list(self._recent_buy):
+            self._recent_buy[tid] -= 1
+            if self._recent_buy[tid] <= 0:
+                del self._recent_buy[tid]
+
+    def mark_recent_buy(self, tower_id: int, frames: int = RECENT_BUY_FRAMES) -> None:
+        """Flag a tower to flash a blue outline for the next few draws."""
+        self._recent_buy[tower_id] = frames
 
     def _effective_range(self, tower) -> float:
         r = tower.attack_radius
@@ -242,13 +263,16 @@ class PygameRenderer:
         line_h = self.font.get_height() + 2
         pad, w = 6, 240
         h = line_h * len(entries) + pad * 2
+        # Top-right of the stage area, just left of the HUD sidebar, so it
+        # doesn't cover the track entrance at the top-left.
+        px = self.stage_px_w - w - 4
         panel = pygame.Surface((w, h), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 150))
-        self.screen.blit(panel, (4, 4))
+        self.screen.blit(panel, (px, 4))
         y = 4 + pad
         for line in entries:
             surf = self.font.render(line, True, (235, 235, 235))
-            self.screen.blit(surf, (4 + pad, y))
+            self.screen.blit(surf, (px + pad, y))
             y += line_h
 
     def _draw_bullets(self) -> None:

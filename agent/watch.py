@@ -158,12 +158,15 @@ def main() -> None:
             log = None
             if act.kind == Kind.PLACE:
                 x, y = cell_to_xy(act.b)
-                if sim.place_tower(act.tower_type, x, y) != -1:
+                tid = sim.place_tower(act.tower_type, x, y)
+                if tid != -1:
+                    renderer.mark_recent_buy(tid)
                     log = f"+ {act.tower_type} @({x:.0f},{y:.0f})"
             elif act.kind == Kind.UPGRADE and act.a < len(sim.towers):
                 t = sim.towers[act.a]
                 entry = sim.available_upgrades(t.id)[act.b]  # (name, price) before buy
                 if sim.upgrade_path(t.id, act.b) and entry is not None:
+                    renderer.mark_recent_buy(t.id)
                     log = f"up #{t.id} -> {entry[0]}"
             elif act.kind == Kind.SELL and act.a < len(sim.towers):
                 t = sim.towers[act.a]
