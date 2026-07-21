@@ -51,10 +51,9 @@ def build_model(vec_env, seed: int) -> MaskablePPO:
         gae_lambda=0.95,     # GAE bias/variance knob for the advantage (critic baseline)
         # --- PPO stability / exploration ---
         clip_range=0.2,      # the "proximal" trust region on the policy update
-        ent_coef=0.03,       # entropy bonus, raised from 0.01 to slow the tower
-                             # monoculture collapse (agent only ever built darts
-                             # + a rare tack, never bombs/supers) so it samples
-                             # and can discover the towers hard rounds require
+        ent_coef=0.01,       # entropy bonus (back to default: dart+bomb IS the
+                             # winning strategy, so exploration was never the
+                             # problem — under-building/hoarding is)
         vf_coef=0.5,         # weight of the value (critic) loss
         policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256])),
     )
@@ -75,9 +74,9 @@ def main() -> None:
     # Fraction of training episodes that start mid-game at a hard round (dense
     # MOAB-era experience). Eval always uses full round-1 games (0.0).
     p.add_argument("--curriculum-p", type=float, default=0.5)
-    # One-time reward for first placing each tower type (breaks the dart
-    # monoculture by making the agent sample bombs/supers). Training only.
-    p.add_argument("--diversity-bonus", type=float, default=0.3)
+    # One-time reward for first placing each tower type. Default OFF: dart+bomb
+    # already wins the game, so diversity was a non-problem; kept as a knob only.
+    p.add_argument("--diversity-bonus", type=float, default=0.0)
     args = p.parse_args()
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.

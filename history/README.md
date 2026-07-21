@@ -147,3 +147,33 @@ time each tower type is placed in an episode; `--diversity-bonus`, training only
 eval 0.0). Rewards breadth (try each type once), not spam, so the agent samples
 bombs/supers and can discover that leads require bombs. Success = tower-type
 spread in `trace.py`, not round-reached.
+
+## The real problem is under-building, not diversity (2026-07-20, later)
+
+run8 (diversity bonus, 1M) **regressed**: mean round 25.9, hoards ~$4400, still
+only dart+1bomb. Every stacked intervention had made it worse than the untouched
+baseline (34). Stepped back and tested the actual question with the sim: **can a
+dart+bomb defense win the whole game?**
+
+    30 darts +  8 bombs (upgraded) -> round 50, WON, lives 100
+    25 darts + 25 bombs (upgraded) -> round 50, WON, lives 100
+
+**Yes — dart+bomb, built out and upgraded, clears round 50 losslessly.** So the
+"plain" strategy the agent found is *correct*: dart covers blacks (bomb-immune),
+bomb covers leads (need leadbreak); together they cover every immunity. The whole
+gap is that the agent builds **9-17 towers and hoards ~$4400** when the winning
+defense is **~38 upgraded towers**. It's a pure **under-building / investment**
+problem — not exploration, diversity, or tool choice.
+
+Refocus:
+- Reverted the scaffolds (diversity bonus -> 0, ent_coef -> 0.01). Exploration
+  was never the issue.
+- Reconfigured the curriculum to be **winnable**: start at MODERATE rounds (8-22,
+  winnable from fresh) and **play forward**, so building out is rewarded (spend ->
+  survive -> reward). The old fresh-board-at-hard-round starts were unwinnable and
+  taught hoarding.
+- Success metric: **money-at-end drops** and **tower-count rises** (anti-hoarding),
+  pushing toward round 50. Escalation if under-building persists: self-snapshot
+  curriculum (restart from the agent's own mid-game states, which carry the
+  hoarded money it can then learn to spend) and/or higher gamma (0.995 -> 0.999)
+  for the long-horizon "buy now, survive later" credit assignment.

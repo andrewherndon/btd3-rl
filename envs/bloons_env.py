@@ -35,14 +35,17 @@ LOSS_PENALTY = -1.0          # lives hit 0
 # with a curriculum, not this knob. Kept tunable, disabled.
 ECON_ACTION_COST = 0.0
 
-# Curriculum: fraction of TRAINING episodes that start mid-game at a hard round
-# (scaled money, fresh board) so the agent gets dense experience at rounds it
-# rarely reaches from round 1. Range spans the walls that break a dart-only
-# defense: lead rounds (36/39/41 — leads need bombs' leadbreak) and dense rounds.
-# 0.0 = always start at round 1; eval uses 0.0 so metrics stay on honest games.
+# Curriculum: fraction of TRAINING episodes that start mid-game (scaled money,
+# fresh board) then PLAY FORWARD. Start rounds are MODERATE and winnable-from-
+# fresh (8-22): the agent builds up naturally and reaches the hard rounds with a
+# real defense. (Starting fresh AT a hard round like 36 was unwinnable in one
+# shopping phase -> it taught helplessness/hoarding, the opposite of what we
+# want.) A winnable start teaches "spend -> field more towers -> survive ->
+# reward", the fix for the under-building we actually have. 0.0 = always round 1;
+# eval uses 0.0 so metrics stay on honest games.
 CURRICULUM_P = 0.0
-CURRICULUM_MIN_ROUND = 20
-CURRICULUM_MAX_ROUND = 42
+CURRICULUM_MIN_ROUND = 8
+CURRICULUM_MAX_ROUND = 22
 
 # One-time reward the FIRST time each tower type is placed in an episode. A
 # directed-exploration scaffold: the policy collapsed to darts and never sampled
