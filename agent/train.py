@@ -49,7 +49,10 @@ def build_model(vec_env, seed: int) -> MaskablePPO:
         gae_lambda=0.95,     # GAE bias/variance knob for the advantage (critic baseline)
         # --- PPO stability / exploration ---
         clip_range=0.2,      # the "proximal" trust region on the policy update
-        ent_coef=0.01,       # entropy bonus -> keeps the masked policy exploring
+        ent_coef=0.03,       # entropy bonus, raised from 0.01 to slow the tower
+                             # monoculture collapse (agent only ever built darts
+                             # + a rare tack, never bombs/supers) so it samples
+                             # and can discover the towers hard rounds require
         vf_coef=0.5,         # weight of the value (critic) loss
         policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256])),
     )

@@ -103,3 +103,36 @@ Decisions:
 - Note on reward shaping: a sell-only penalty was considered but declined — it
   still shapes strategy (biases against selling), and the real fix is upstream
   (let the agent *discover* MOAB counters via curriculum), not more reward hacks.
+
+## It was never the MOAB — it's leads + a tower monoculture (2026-07-20)
+
+Built `agent/trace.py` (headless action-log replay) to watch the agent directly.
+On a full game (run6, 1M) it: reached round 33, took PLACE=155 / SELL=127 /
+UPGRADE=62 -> only ~28 towers on board, and placed **only darts (153 place
+actions) + 2 bombs, nothing else**. So: a **dart monoculture** (rarely a tack),
+and the big place-count is **churn** (buy/sell the same spot), not board size.
+
+Then tested defenses directly against the round table:
+- **Round 37's MOAB is trivial** — "30 darts + 8 bombs" or "6 supers + 6 bombs"
+  lose **0 lives**. Our "MOAB wall" framing was a misread.
+- The real walls: **leads** (rank 7, rounds 36/39/41) which **only bombs pop**
+  (leadbreak), and **dense rounds** (e.g. 60 blacks at r33) that a money-starved
+  dart-only defense can't out-DPS. (Off-by-one in the first test hid this: the
+  agent dies ~33 to firepower/lead limits, not to the MOAB.)
+
+So the game IS winnable with the available towers; the blocker is a **tower-type
+exploration collapse** — darts give immediate early reward, the policy collapses
+to darts before trying bombs/supers, and then it structurally can't pass leads.
+Churn is downstream (no learned use for money).
+
+Tier-1 fix (this iteration):
+- Curriculum range widened to rounds **20-42** so it covers the lead rounds where
+  dart-only *must* fail (forcing gradient pressure toward alternatives).
+- `ent_coef` **0.01 -> 0.03** to slow the collapse so bombs/supers get sampled.
+- Success metric shifts from round-reached to **tower diversity** (check via
+  `trace.py`: do bombs/supers actually appear?).
+- Tier-2 if still monoculture: directed exploration (intrinsic diversity bonus —
+  defensible since leads *hard-require* bombs) or a demonstration warm-start.
+
+Tools: `agent/trace.py` replays a model headless and prints the action log +
+counts (sells vs places = churn; tower-type distribution = diversity).

@@ -37,11 +37,12 @@ ECON_ACTION_COST = 0.0
 
 # Curriculum: fraction of TRAINING episodes that start mid-game at a hard round
 # (scaled money, fresh board) so the agent gets dense experience at rounds it
-# rarely reaches from round 1 (esp. MOABs at 37+). 0.0 = always start at round 1;
-# eval uses 0.0 so its metrics stay on honest full games.
+# rarely reaches from round 1. Range spans the walls that break a dart-only
+# defense: lead rounds (36/39/41 — leads need bombs' leadbreak) and dense rounds.
+# 0.0 = always start at round 1; eval uses 0.0 so metrics stay on honest games.
 CURRICULUM_P = 0.0
 CURRICULUM_MIN_ROUND = 20
-CURRICULUM_MAX_ROUND = 38
+CURRICULUM_MAX_ROUND = 42
 
 # Truncation backstops (not part of the MDP; guard against pathological loops).
 MAX_ECON_PER_ROUND = 60      # forced START_ROUND after this many buys/sells
