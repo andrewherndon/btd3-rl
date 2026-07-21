@@ -44,6 +44,13 @@ CURRICULUM_P = 0.0
 CURRICULUM_MIN_ROUND = 20
 CURRICULUM_MAX_ROUND = 42
 
+# One-time reward the FIRST time each tower type is placed in an episode. A
+# directed-exploration scaffold: the policy collapsed to darts and never sampled
+# bombs/supers, so it never discovered that leads REQUIRE bombs. Rewards breadth
+# (try each type once), not spam. OFF by default (eval uses 0.0); train.py turns
+# it on. Expected to fade once real reward reinforces the towers hard rounds need.
+DIVERSITY_BONUS = 0.0
+
 # Truncation backstops (not part of the MDP; guard against pathological loops).
 MAX_ECON_PER_ROUND = 60      # forced START_ROUND after this many buys/sells
 MAX_STEPS = 8000             # hard episode step cap
@@ -61,6 +68,7 @@ class BloonsEnv(gym.Env):
         curriculum_p: float = CURRICULUM_P,
         curriculum_min: int = CURRICULUM_MIN_ROUND,
         curriculum_max: int = CURRICULUM_MAX_ROUND,
+        diversity_bonus: float = DIVERSITY_BONUS,
     ) -> None:
         super().__init__()
         # Template config; the per-episode seed is filled in at reset() for
@@ -72,6 +80,7 @@ class BloonsEnv(gym.Env):
         self.curriculum_p = curriculum_p
         self.curriculum_min = curriculum_min
         self.curriculum_max = curriculum_max
+        self.diversity_bonus = diversity_bonus
 
         self.observation_space = make_observation_space()
         self.action_space = spaces.Discrete(A.N_ACTIONS)
@@ -80,6 +89,7 @@ class BloonsEnv(gym.Env):
         self.cell_valid: np.ndarray
         self._econ_streak = 0
         self._steps = 0
+        self._types_placed: set[str] = set()   # tower types placed this episode
 
     # ---------------------------------------------------------------- gym API
 
@@ -101,6 +111,7 @@ class BloonsEnv(gym.Env):
             self.sim.money = self._accumulated_money(r)
         self._econ_streak = 0
         self._steps = 0
+        self._types_placed.clear()
         return encode(self.sim), self._info()
 
     @staticmethod
@@ -126,7 +137,12 @@ class BloonsEnv(gym.Env):
             reward = -self.econ_action_cost
             if act.kind == Kind.PLACE:
                 x, y = cell_to_xy(act.b)
-                self.sim.place_tower(act.tower_type, x, y)
+                if self.sim.place_tower(act.tower_type, x, y) != -1:
+                    # Directed-exploration scaffold: bonus for the first use of
+                    # each tower type this episode (breadth, not spam).
+                    if act.tower_type not in self._types_placed:
+                        self._types_placed.add(act.tower_type)
+                        reward += self.diversity_bonus
             elif act.kind == Kind.UPGRADE:
                 if act.a < len(self.sim.towers):
                     self.sim.upgrade_path(self.sim.towers[act.a].id, act.b)

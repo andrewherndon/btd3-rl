@@ -136,3 +136,14 @@ Tier-1 fix (this iteration):
 
 Tools: `agent/trace.py` replays a model headless and prints the action log +
 counts (sells vs places = churn; tower-type distribution = diversity).
+
+Update — Tier-1 failed, went to Tier-2 (diversity bonus). run7 (1M, curriculum +
+ent_coef 0.03) did NOT break the monoculture: `best_model` @seed0 = 156 dart /
+4 bomb places, 143 churn-sells, round 29; `model` (final) = 7 dart / 3 bomb,
+hoards $3.3k, round 26. (Reminder: `best_model` = best-eval checkpoint, `model` =
+final — different policies; here they show the two symptoms, churn vs hoard.)
+So added **Tier-2 directed exploration**: a **diversity bonus** (+0.3 the first
+time each tower type is placed in an episode; `--diversity-bonus`, training only,
+eval 0.0). Rewards breadth (try each type once), not spam, so the agent samples
+bombs/supers and can discover that leads require bombs. Success = tower-type
+spread in `trace.py`, not round-reached.

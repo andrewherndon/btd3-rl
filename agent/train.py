@@ -21,13 +21,15 @@ from btd.game import SimConfig
 from envs import BloonsEnv
 
 
-def make_env(difficulty: str, curriculum_p: float = 0.0):
+def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float = 0.0):
     """Factory for one Monitor-wrapped env. Each reset draws a fresh sim seed
     (domain randomization); Monitor records episode reward/length for logging.
-    `curriculum_p` > 0 starts some episodes mid-game at hard rounds (training
-    only; eval passes 0.0 to keep metrics on full round-1 games)."""
+    `curriculum_p` > 0 starts some episodes mid-game at hard rounds and
+    `diversity_bonus` > 0 rewards trying new tower types (both training only;
+    eval passes 0.0 so metrics stay on honest full round-1 games)."""
     def _init():
-        return Monitor(BloonsEnv(SimConfig(difficulty=difficulty), curriculum_p=curriculum_p))
+        return Monitor(BloonsEnv(SimConfig(difficulty=difficulty),
+                                 curriculum_p=curriculum_p, diversity_bonus=diversity_bonus))
     return _init
 
 
@@ -73,13 +75,18 @@ def main() -> None:
     # Fraction of training episodes that start mid-game at a hard round (dense
     # MOAB-era experience). Eval always uses full round-1 games (0.0).
     p.add_argument("--curriculum-p", type=float, default=0.5)
+    # One-time reward for first placing each tower type (breaks the dart
+    # monoculture by making the agent sample bombs/supers). Training only.
+    p.add_argument("--diversity-bonus", type=float, default=0.3)
     args = p.parse_args()
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
     VecEnv = SubprocVecEnv if args.vec == "subproc" else DummyVecEnv
-    train_env = VecEnv([make_env(args.difficulty, args.curriculum_p) for _ in range(args.n_envs)])
-    # Separate eval env (single game, full round-1 start) for honest metrics.
-    eval_env = DummyVecEnv([make_env(args.difficulty, 0.0)])
+    train_env = VecEnv([make_env(args.difficulty, args.curriculum_p, args.diversity_bonus)
+                        for _ in range(args.n_envs)])
+    # Separate eval env (single game, full round-1 start, no scaffolds) for
+    # honest metrics.
+    eval_env = DummyVecEnv([make_env(args.difficulty, 0.0, 0.0)])
 
     save_path = Path(args.save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
