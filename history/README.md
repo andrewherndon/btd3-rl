@@ -223,3 +223,32 @@ too far to propagate through the discount. Fix (one variable): **gamma 0.995 ->
 steps) so the long horizon won't blow up. Escalation if it still plateaus:
 self-snapshot curriculum from the agent's own hoarding states (round 33, 25
 towers, $5k) to directly teach "spend the hoard to survive".
+
+## SOLVED (run13, 2026-07-21)
+
+Gamma did it. run13 (winnable curriculum + centralized anti-churn/same-cell +
+**gamma 0.999**), still mid-run at ~3M steps:
+
+    win rate: 30/30 (100%)   round reached: 50.0 (all seeds)   lives left: 98.1 avg
+    composition: 26 dart, 19 bomb, 5 tack, 1 spike, 3 super  (~47 towers)
+
+**The agent solves BTD3 track 3 (easy) with a 100% win rate, near-flawless
+(98/100 lives).** The winning strategy is exactly what the sim test predicted:
+a dart+bomb core (darts for blacks, bombs for leads), built out to ~40+ towers,
+with a few supers late that it doesn't even need.
+
+What actually cracked it, in order:
+1. **Anti-churn (structural same-phase-resell ban)** — killed the reward-neutral
+   buy/sell loop that was inflating episodes to ~660 steps and poisoning credit
+   assignment. This was the enabler; nothing else worked until episodes were short.
+2. **Winnable curriculum** (start at moderate rounds 8-22, play forward) — taught
+   investment (9 -> 25 towers) by making "spend -> survive" a reachable lesson.
+3. **gamma 0.995 -> 0.999** — the final lever. With episodes now short, the higher
+   discount let the round-50 payoff propagate back to early "buy more towers"
+   decisions, breaking the 25-tower hoarding plateau -> it builds the full ~40.
+
+Dead ends that taught us the most: the "MOAB wall" was a misread (round-37 MOAB is
+trivial; the real walls were leads + under-building); every *reward*-shaping
+anti-churn attempt (blanket/sell penalties) regressed us via hoarding; and
+"diversity" was a non-problem (dart+bomb wins). The lesson throughout: measure the
+actual behavior (trace.py + sim tests), don't tune on hunches.
