@@ -157,7 +157,9 @@ class BloonsSim:
         self.money -= price
         tid = self._next_tower_id
         self._next_tower_id += 1
-        self.towers.append(Tower.from_type(tid, type_, x, y))
+        tower = Tower.from_type(tid, type_, x, y)
+        tower.placed_round = self.round      # for the same-phase-resell mask rule
+        self.towers.append(tower)
         return tid
 
     def is_placement_valid(self, x: float, y: float) -> bool:

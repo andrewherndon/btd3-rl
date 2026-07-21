@@ -39,6 +39,7 @@ class Tower:
     beacon_rate_active: bool = False
     pop_count: int = 0
     time_since_last_shot: int = 0
+    placed_round: int = -1     # round the tower was bought (for the anti-churn mask)
     # Targeting mode. AS only ever uses "first"; "last" is supported for
     # completeness but no shipped tower switches to it.
     ai_mode: str = "first"

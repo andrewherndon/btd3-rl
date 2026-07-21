@@ -51,6 +51,13 @@ def build_action_mask(sim: BloonsSim, cell_valid: np.ndarray) -> np.ndarray:
             price = sim._price(TOWER_STATS[type_name]["cost"])
             if price <= sim.money:
                 place[t] = cell_valid
+        # No exact-overlap stacking: forbid placing on a cell already occupied by
+        # a tower (matches the real game's rule that towers can't share a spot).
+        for tw in sim.towers:
+            col = int(tw.x // A.CELL_SIZE)
+            row = int(tw.y // A.CELL_SIZE)
+            if 0 <= col < A.GRID_COLS and 0 <= row < A.GRID_ROWS:
+                place[:, row * A.GRID_COLS + col] = False
 
     # UPGRADE(slot, path): slot holds a tower, path has a next upgrade, afford.
     for slot, tower in enumerate(sim.towers[:A.MAX_TOWERS]):
@@ -60,9 +67,12 @@ def build_action_mask(sim: BloonsSim, cell_valid: np.ndarray) -> np.ndarray:
             if entry is not None and entry[1] <= sim.money:
                 mask[A.encode_upgrade(slot, path)] = True
 
-    # SELL(slot): any real tower can be sold.
+    # SELL(slot): a tower can be sold once it has fought at least one round
+    # (placed_round < current round). Forbidding sale of a tower placed THIS
+    # shopping phase breaks the buy->sell->rebuy churn loop, with no reward change.
     n = min(len(sim.towers), A.MAX_TOWERS)
     for slot in range(n):
-        mask[A.encode_sell(slot)] = True
+        if sim.towers[slot].placed_round < sim.round:
+            mask[A.encode_sell(slot)] = True
 
     return mask
