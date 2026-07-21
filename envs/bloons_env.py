@@ -93,6 +93,7 @@ class BloonsEnv(gym.Env):
         self._econ_streak = 0
         self._steps = 0
         self._types_placed: set[str] = set()   # tower types placed this episode
+        self._placed_this_phase: set[int] = set()  # tower ids bought since last round
 
     # ---------------------------------------------------------------- gym API
 
@@ -115,6 +116,7 @@ class BloonsEnv(gym.Env):
         self._econ_streak = 0
         self._steps = 0
         self._types_placed.clear()
+        self._placed_this_phase.clear()
         return encode(self.sim), self._info()
 
     @staticmethod
@@ -134,13 +136,16 @@ class BloonsEnv(gym.Env):
         if act.kind == Kind.START_ROUND:
             reward, terminated = self._play_round()
             self._econ_streak = 0
+            self._placed_this_phase.clear()   # towers have now "fought" a round
         else:
             # Economic action: pay the small per-action cost (anti-churn), then
             # apply it. START_ROUND is never taxed — we want to encourage progress.
             reward = -self.econ_action_cost
             if act.kind == Kind.PLACE:
                 x, y = cell_to_xy(act.b)
-                if self.sim.place_tower(act.tower_type, x, y) != -1:
+                tid = self.sim.place_tower(act.tower_type, x, y)
+                if tid != -1:
+                    self._placed_this_phase.add(tid)     # can't be re-sold this phase
                     # Directed-exploration scaffold: bonus for the first use of
                     # each tower type this episode (breadth, not spam).
                     if act.tower_type not in self._types_placed:
@@ -164,7 +169,15 @@ class BloonsEnv(gym.Env):
             m = np.zeros(A.N_ACTIONS, dtype=bool)
             m[A.START_ROUND] = True
             return m
-        return build_action_mask(self.sim, self.cell_valid)
+        mask = build_action_mask(self.sim, self.cell_valid)
+        # Anti-churn: forbid selling a tower placed this shopping phase, which
+        # breaks the buy->sell->rebuy loop (a just-placed tower hasn't fought a
+        # round yet). Legit repositioning sells older towers and is unaffected.
+        if self._placed_this_phase:
+            for slot, tower in enumerate(self.sim.towers[:A.MAX_TOWERS]):
+                if tower.id in self._placed_this_phase:
+                    mask[A.encode_sell(slot)] = False
+        return mask
 
     # -------------------------------------------------------------- internals
 

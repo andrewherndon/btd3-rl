@@ -177,3 +177,25 @@ Refocus:
   curriculum (restart from the agent's own mid-game states, which carry the
   hoarded money it can then learn to spend) and/or higher gamma (0.995 -> 0.999)
   for the long-horizon "buy now, survive later" credit assignment.
+
+### Winnable curriculum helped, but churn came back — structural fix
+
+run9 (winnable curriculum): round 31.9 (up from 25.9), money-at-end $2169 (down
+from $4400) — so the winnable curriculum DID teach more investment. But churn
+returned hard (best_model: 306 sells) since nothing penalized it.
+
+Key realization about *why* the agent can't "figure out" churn is bad: it's
+**reward-neutral** (money isn't rewarded), so churn scores the same as not-churn.
+Worse, it's **self-perpetuating** — churn inflates episodes to ~660 steps, which
+(at gamma 0.995) discounts the distal "you wasted money -> you died" signal to
+nothing, so the agent can't learn churn is bad *because it churns*. It's a
+signal-poverty trap that needs an external break.
+
+Chose the **structural** fix over a sell penalty (we'd tried a *blanket*
+per-action cost -> hoarding; never a sell-only cost, but the user is wary of
+reward shaping): **forbid selling a tower placed in the current shopping phase.**
+A mask rule, zero reward change (no hoarding-rebound risk), and provably safe
+since winning strategies sell zero towers. It breaks the intra-phase
+buy->sell->rebuy loop; legit repositioning (selling older towers) is unaffected.
+Bonus: killing churn shortens episodes, which should *un-poison* credit
+assignment for the under-building we're also fighting.
