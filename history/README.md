@@ -199,3 +199,27 @@ since winning strategies sell zero towers. It breaks the intra-phase
 buy->sell->rebuy loop; legit repositioning (selling older towers) is unaffected.
 Bonus: killing churn shortens episodes, which should *un-poison* credit
 assignment for the under-building we're also fighting.
+
+### Best result yet, and the 25-tower plateau (run11, 1M)
+
+The anti-churn ban had a train/inference mismatch (it lived in the env, but
+watch/trace rebuild masks via `build_action_mask`), so watch still showed churn.
+Fixed by centralizing BOTH rules in `build_action_mask`: the resell ban (via a new
+`Tower.placed_round`, sellable only once `placed_round < current round`) and a
+**same-cell placement block** (no exact-overlap stacking). Now every mask consumer
+is identical.
+
+run11 (winnable curriculum + centralized fixes, 1M) is the **best yet**: eval
+round mean 35.6 / median 37 / max 39 — *past the MOAB* — building 25 towers (was
+9-17), churn mostly dead (19 sells, milder "sell-old-rebuy"), using 6 bombs + a
+tack, darts spaced out. The winnable curriculum clearly taught investment.
+
+But it **plateaus at exactly 25 towers by round 25, then hoards** ($253 -> $5365
+across rounds 25-38 with zero new towers) and dies at 38 sitting on $6k. It has
+the money for the remaining ~13 towers (winning defense ~38) but won't spend it:
+a **distal-reward problem** — the payoff of late-game towers (surviving 42-50) is
+too far to propagate through the discount. Fix (one variable): **gamma 0.995 ->
+0.999**, now safe because the anti-churn fix shortened episodes (~130 vs ~660
+steps) so the long horizon won't blow up. Escalation if it still plateaus:
+self-snapshot curriculum from the agent's own hoarding states (round 33, 25
+towers, $5k) to directly teach "spend the hoard to survive".

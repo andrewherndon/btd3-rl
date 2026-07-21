@@ -46,8 +46,11 @@ def build_model(vec_env, seed: int) -> MaskablePPO:
         n_epochs=10,         # passes over each rollout (PPO reuses data via clipping)
         learning_rate=3e-4,  # Adam step size
         # --- return / advantage estimation ---
-        gamma=0.995,         # discount over DECISION steps. High because the horizon
-                             # is long (many economic steps/round); prime tuning knob.
+        gamma=0.999,         # discount over DECISION steps. Raised from 0.995: the
+                             # agent plateaus at ~25 towers then hoards because the
+                             # payoff of late-game towers (surviving rounds 42-50) is
+                             # too distal to propagate. Now safe to raise since the
+                             # anti-churn fix shortened episodes (~130 vs ~660 steps).
         gae_lambda=0.95,     # GAE bias/variance knob for the advantage (critic baseline)
         # --- PPO stability / exploration ---
         clip_range=0.2,      # the "proximal" trust region on the policy update
