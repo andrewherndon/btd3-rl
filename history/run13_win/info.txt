@@ -1,0 +1,28 @@
+run13 — FIRST WINNING MODEL (solves BTD3 track 3, easy)
+date: 2026-07-21
+code commit: 18afa4a  (gamma 0.999, centralized anti-churn + same-cell block,
+                       winnable curriculum, MAX_TOWERS=64, N_ACTIONS=9793)
+checkpoint: best_model captured at ~3M steps of a 10M run.
+
+command:
+  agent/train.py --timesteps 10000000 --n-envs 8 --eval-freq 250000 \
+    --curriculum-p 0.5 --save-path agent/models/run13/model
+hyperparams: n_steps 2048, batch 256, n_epochs 10, lr 3e-4,
+             gamma 0.999, gae_lambda 0.95, clip 0.2, ent_coef 0.01,
+             net_arch pi/vf [256,256]
+env aids (training only): curriculum_p 0.5 (start rounds 8-22, play forward);
+             diversity_bonus 0; econ penalty 0. Eval uses none of these.
+
+eval (30 held-out seeds, deterministic):
+  win rate 30/30 (100%) ; round reached 50.0 (all) ; lives left 98.1 avg ;
+  money at end ~$10366 ; reward ~59.8
+
+behavior: dart+bomb core (26 dart / 19 bomb) + a few tack/spike/super, built out
+to ~47 towers, spread along the path. Wins round 50 near-flawlessly (98/100 lives).
+
+what cracked it (see ../README.md): (1) structural anti-churn shortened episodes
+and un-poisoned credit assignment; (2) winnable curriculum taught investment;
+(3) gamma 0.995->0.999 broke the 25-tower hoarding plateau.
+
+model: best_model.zip  (MaskablePPO, MultiInputPolicy). Loads against commit
+18afa4a's env (obs/action shapes).
