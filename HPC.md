@@ -10,10 +10,11 @@ bash scripts/install.sh        # miniforge + conda env "btd" + deps (RHEL-safe)
 
 ## Quick check first (per-node perf + sanity)
 ```bash
-sbatch agent/bench.sbatch      # runs a 30k-step benchmark on every node (~1-2 min each)
-cat logs/bench_*.out           # per node: python/torch versions, "env OK", steps/s
+bash scripts/bench.sh          # submits, waits, prints every node's result to the terminal
 ```
-Confirms every node has the env + deps working and reports throughput before you
+Runs a 30k-step benchmark on every node and reports, per node: python/torch
+versions, `env OK` (builds + steps end-to-end), and `RESULT: N steps/s PASS`.
+Surfaces a broken node (missing dep / wrong Python) immediately, before you
 commit to real runs. (An "env step" is one agent *decision*, not a round — some
 steps fast-forward a whole round, so steps/s varies with how well the agent plays.)
 
