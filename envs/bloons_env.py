@@ -72,6 +72,7 @@ class BloonsEnv(gym.Env):
         curriculum_min: int = CURRICULUM_MIN_ROUND,
         curriculum_max: int = CURRICULUM_MAX_ROUND,
         diversity_bonus: float = DIVERSITY_BONUS,
+        difficulty_choices: tuple[str, ...] = (),
     ) -> None:
         super().__init__()
         # Template config; the per-episode seed is filled in at reset() for
@@ -84,6 +85,10 @@ class BloonsEnv(gym.Env):
         self.curriculum_min = curriculum_min
         self.curriculum_max = curriculum_max
         self.diversity_bonus = diversity_bonus
+        # If non-empty, each episode samples a difficulty from this pool (domain
+        # randomization) so one policy learns to adapt to the economy (prices /
+        # lives, which are in the obs). Empty = fixed to the template difficulty.
+        self.difficulty_choices = difficulty_choices
 
         self.observation_space = make_observation_space()
         self.action_space = spaces.Discrete(A.N_ACTIONS)
@@ -103,7 +108,10 @@ class BloonsEnv(gym.Env):
         # Explicit seed -> reproducible (eval). Otherwise draw a fresh one each
         # episode from the env RNG -> domain randomization over jitter/round-gen.
         sim_seed = seed if seed is not None else int(self.np_random.integers(0, 2**31 - 1))
-        self.sim = BloonsSim(replace(self._cfg_template, seed=sim_seed))
+        difficulty = self._cfg_template.difficulty
+        if self.difficulty_choices:
+            difficulty = str(self.np_random.choice(self.difficulty_choices))
+        self.sim = BloonsSim(replace(self._cfg_template, seed=sim_seed, difficulty=difficulty))
         self.cell_valid = compute_cell_validity(self.sim)
         # Curriculum start: sometimes begin mid-game at a hard round with scaled
         # money and a fresh board, so the agent gets dense practice at rounds it

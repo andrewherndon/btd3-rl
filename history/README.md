@@ -252,3 +252,22 @@ trivial; the real walls were leads + under-building); every *reward*-shaping
 anti-churn attempt (blanket/sell penalties) regressed us via hoarding; and
 "diversity" was a non-problem (dart+bomb wins). The lesson throughout: measure the
 actual behavior (trace.py + sim tests), don't tune on hunches.
+
+## Overfitting + domain randomization (2026-07-21)
+
+Zero-shot test of the easy-trained run13 on other difficulties (which change only
+lives 100->50 and cost_mult 0.85->1.08; rounds 1-50 are the same bloons):
+
+    run13 (easy-trained) on HARD:   0/30 wins, dies round 5
+    run13 (easy-trained) on MEDIUM: 0/30 wins, dies round 7
+
+Textbook **overfitting**: `cost_mult=1.08` is out-of-distribution (it only ever saw
+0.85), so the policy collapses into a degenerate 2-tower churn loop and never
+builds. It learned "easy BTD", not "BTD". The obs *includes* cost_mult/lives, but
+the policy never trained on those values.
+
+Fix = **domain randomization**: `BloonsEnv(difficulty_choices=...)` samples the
+difficulty per episode (train.py `--difficulties easy,medium,hard`), so one policy
+trains across the whole economy and learns to adapt (prices/lives are in its obs).
+Eval stays fixed (`--eval-difficulty`, default hard) for honest best_model
+selection. Small change, and the elegant cure for the brittleness.

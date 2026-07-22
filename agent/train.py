@@ -21,15 +21,17 @@ from btd.game import SimConfig
 from envs import BloonsEnv
 
 
-def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float = 0.0):
-    """Factory for one Monitor-wrapped env. Each reset draws a fresh sim seed
-    (domain randomization); Monitor records episode reward/length for logging.
-    `curriculum_p` > 0 starts some episodes mid-game at hard rounds and
-    `diversity_bonus` > 0 rewards trying new tower types (both training only;
-    eval passes 0.0 so metrics stay on honest full round-1 games)."""
+def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float = 0.0,
+             difficulty_choices: tuple[str, ...] = ()):
+    """Factory for one Monitor-wrapped env. Each reset draws a fresh sim seed;
+    Monitor records episode reward/length for logging. Training aids (all off for
+    eval): `curriculum_p` starts some episodes mid-game, `diversity_bonus` rewards
+    new tower types, `difficulty_choices` randomizes the difficulty per episode
+    (domain randomization -> one policy robust across easy/medium/hard)."""
     def _init():
         return Monitor(BloonsEnv(SimConfig(difficulty=difficulty),
-                                 curriculum_p=curriculum_p, diversity_bonus=diversity_bonus))
+                                 curriculum_p=curriculum_p, diversity_bonus=diversity_bonus,
+                                 difficulty_choices=difficulty_choices))
     return _init
 
 
@@ -65,7 +67,10 @@ def build_model(vec_env, seed: int) -> MaskablePPO:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--timesteps", type=int, default=200_000)
-    p.add_argument("--difficulty", default="easy", choices=["easy", "medium", "hard"])
+    # Training difficulty pool (comma-separated). >1 value = domain randomization.
+    p.add_argument("--difficulties", default="easy,medium,hard")
+    # Difficulty the eval callback (best_model selection) uses. hard = toughest test.
+    p.add_argument("--eval-difficulty", default="hard", choices=["easy", "medium", "hard"])
     p.add_argument("--n-envs", type=int, default=8)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--save-path", default="agent/models/maskable_ppo")
@@ -84,11 +89,12 @@ def main() -> None:
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
     VecEnv = SubprocVecEnv if args.vec == "subproc" else DummyVecEnv
-    train_env = VecEnv([make_env(args.difficulty, args.curriculum_p, args.diversity_bonus)
+    diffs = tuple(d.strip() for d in args.difficulties.split(","))
+    train_env = VecEnv([make_env(diffs[0], args.curriculum_p, args.diversity_bonus, diffs)
                         for _ in range(args.n_envs)])
-    # Separate eval env (single game, full round-1 start, no scaffolds) for
-    # honest metrics.
-    eval_env = DummyVecEnv([make_env(args.difficulty, 0.0, 0.0)])
+    # Separate eval env: fixed difficulty, no scaffolds/randomization, so best_model
+    # is selected on honest full round-1 games at one difficulty.
+    eval_env = DummyVecEnv([make_env(args.eval_difficulty, 0.0, 0.0, ())])
 
     save_path = Path(args.save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
