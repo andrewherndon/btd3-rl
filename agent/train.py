@@ -35,7 +35,8 @@ def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float 
     return _init
 
 
-def build_model(vec_env, seed: int) -> MaskablePPO:
+def build_model(vec_env, seed: int, gamma: float = 0.999, ent_coef: float = 0.01,
+                learning_rate: float = 3e-4) -> MaskablePPO:
     return MaskablePPO(
         # Dict observation -> MultiInputPolicy (per-key encoders, then concat).
         "MultiInputPolicy",
@@ -46,9 +47,9 @@ def build_model(vec_env, seed: int) -> MaskablePPO:
         n_steps=2048,        # env steps per env before an update; batch = n_steps*n_envs
         batch_size=256,      # minibatch size for the SGD epochs
         n_epochs=10,         # passes over each rollout (PPO reuses data via clipping)
-        learning_rate=3e-4,  # Adam step size
+        learning_rate=learning_rate,  # Adam step size
         # --- return / advantage estimation ---
-        gamma=0.999,         # discount over DECISION steps. Raised from 0.995: the
+        gamma=gamma,         # discount over DECISION steps. Raised from 0.995: the
                              # agent plateaus at ~25 towers then hoards because the
                              # payoff of late-game towers (surviving rounds 42-50) is
                              # too distal to propagate. Now safe to raise since the
@@ -56,7 +57,7 @@ def build_model(vec_env, seed: int) -> MaskablePPO:
         gae_lambda=0.95,     # GAE bias/variance knob for the advantage (critic baseline)
         # --- PPO stability / exploration ---
         clip_range=0.2,      # the "proximal" trust region on the policy update
-        ent_coef=0.01,       # entropy bonus (back to default: dart+bomb IS the
+        ent_coef=ent_coef,   # entropy bonus (back to default: dart+bomb IS the
                              # winning strategy, so exploration was never the
                              # problem — under-building/hoarding is)
         vf_coef=0.5,         # weight of the value (critic) loss
@@ -85,6 +86,10 @@ def main() -> None:
     # One-time reward for first placing each tower type. Default OFF: dart+bomb
     # already wins the game, so diversity was a non-problem; kept as a knob only.
     p.add_argument("--diversity-bonus", type=float, default=0.0)
+    # Sweepable hyperparameters (exposed for the SLURM sweep; see agent/sweep.sbatch).
+    p.add_argument("--gamma", type=float, default=0.999)
+    p.add_argument("--ent-coef", type=float, default=0.01)
+    p.add_argument("--learning-rate", type=float, default=3e-4)
     args = p.parse_args()
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
@@ -107,7 +112,8 @@ def main() -> None:
         deterministic=True,
     )
 
-    model = build_model(train_env, args.seed)
+    model = build_model(train_env, args.seed, gamma=args.gamma,
+                        ent_coef=args.ent_coef, learning_rate=args.learning_rate)
     model.learn(total_timesteps=args.timesteps, callback=eval_cb, progress_bar=False)
     model.save(str(save_path))
     print(f"saved model -> {save_path}.zip")
