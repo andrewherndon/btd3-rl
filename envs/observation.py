@@ -71,7 +71,12 @@ def encode(sim: BloonsSim) -> dict[str, np.ndarray]:
             [math.log1p(sim.money) / math.log1p(MONEY_SCALE)], dtype=np.float32
         ),
         "lives": np.array([sim.lives / start_lives], dtype=np.float32),
-        "round": np.array([min(sim.round / WIN_ROUND, 1.0)], dtype=np.float32),
+        # Normalize round against the win target: 50 normally, or the full
+        # procedural depth in freeplay, so round position stays legible past 50.
+        "round": np.array(
+            [min(sim.round / (sim.max_round if sim.config.freeplay else WIN_ROUND), 1.0)],
+            dtype=np.float32,
+        ),
         "cost_mult": np.array([sim.cost_mult], dtype=np.float32),
         "next_round_counts": _next_round_counts(sim),
         "towers": towers,

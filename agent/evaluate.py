@@ -54,10 +54,11 @@ def main() -> None:
     # Held-out seed base: far from anything training is likely to have drawn.
     p.add_argument("--seed-base", type=int, default=1_000_000)
     p.add_argument("--stochastic", action="store_true")
+    p.add_argument("--freeplay", action="store_true", help="play past round 50")
     args = p.parse_args()
 
     model = MaskablePPO.load(args.model)
-    env = BloonsEnv(SimConfig(difficulty=args.difficulty))
+    env = BloonsEnv(SimConfig(difficulty=args.difficulty, freeplay=args.freeplay))
     seeds = np.arange(args.seed_base, args.seed_base + args.episodes)
 
     res = run_episodes(model, env, seeds, deterministic=not args.stochastic)
