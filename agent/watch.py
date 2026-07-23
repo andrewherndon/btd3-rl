@@ -105,12 +105,14 @@ def main() -> None:
     p.add_argument("--speed", type=float, default=1.0, help="initial speed; 0 = uncapped")
     p.add_argument("--shop-fps", type=int, default=5, help="shopping pacing at 1x")
     p.add_argument("--stochastic", action="store_true", help="sample instead of argmax")
+    p.add_argument("--freeplay", action="store_true", help="play past round 50")
     p.add_argument("--max-rounds", type=int, default=0, help="stop after N rounds (0=full game)")
     p.add_argument("--auto-close", action="store_true", help="don't wait after game ends")
     args = p.parse_args()
 
     model = MaskablePPO.load(args.model)
-    sim = BloonsSim(SimConfig(difficulty=args.difficulty, seed=args.seed or 0))
+    sim = BloonsSim(SimConfig(difficulty=args.difficulty, seed=args.seed or 0,
+                              freeplay=args.freeplay))
     cell_valid = compute_cell_validity(sim)
     renderer = PygameRenderer(sim, scale=args.scale, caption="BTD3 — agent replay")
     _set_caption(args.speed)
