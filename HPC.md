@@ -1,56 +1,56 @@
-# Running on an HPC (SLURM)
+# Running on the SLURM cluster
 
-Parallelize by running **many trainings at once** (a hyperparameter sweep), one
-per node — not one faster run (each run is single-core; the vec-env is IPC-bound).
+**Cluster shape:** an ARM Pi head node (NFS server + SLURM controller + login,
+orchestrator only) and **3 x86_64 compute nodes** (`node01-03`, 4 cores / 3.5 GB,
+Rocky Linux 9). `/clusterfs` is shared NFS (writable by the `hpc` user, visible on
+every node) — the repo and the Python env live there. Do everything as `hpc`.
 
-## One-time install (login node, shared home)
+Parallelize by running **many trainings at once** (a sweep), one per node — not
+one faster run (each run is single-core; ~6 concurrent across the 3 nodes).
+
+## One-time install
 ```bash
-bash scripts/install.sh        # miniforge + conda env "btd" + deps (RHEL-safe)
+sudo -iu hpc git clone https://github.com/andrewherndon/btd3-rl.git /clusterfs/btd3-rl
+sudo -iu hpc bash /clusterfs/btd3-rl/scripts/install.sh
 ```
+Installs an x86_64 miniforge env + deps into `/clusterfs/miniforge3` (the installer
+runs on a compute node so the binaries are x86_64).
 
 ## Quick check first (per-node perf + sanity)
 ```bash
-bash scripts/bench.sh          # submits, waits, prints every node's result to the terminal
+sudo -iu hpc bash /clusterfs/btd3-rl/scripts/bench.sh   # submits, waits, prints each node's result
 ```
-Runs a 30k-step benchmark on every node and reports, per node: python/torch
-versions, `env OK` (builds + steps end-to-end), and `RESULT: N steps/s PASS`.
-Surfaces a broken node (missing dep / wrong Python) immediately, before you
-commit to real runs. (An "env step" is one agent *decision*, not a round — some
-steps fast-forward a whole round, so steps/s varies with how well the agent plays.)
+Reports per node: python/torch versions, `env OK`, and `RESULT: N steps/s PASS`.
 
 ## Submit the sweep (one job per config)
 ```bash
-sbatch agent/sweep.sbatch
-# if you changed the grid size, match the array range:
-sbatch --array=0-$(($(python agent/sweep_configs.py --count)-1)) agent/sweep.sbatch
+sudo -iu hpc sbatch /clusterfs/btd3-rl/agent/sweep.sbatch
 ```
 
-## Watch it
+## Watch it (runs on the Pi; the dashboard needs no torch)
 ```bash
-conda activate btd
-python agent/sweep_dashboard.py        # live table (status/steps/reward); --once = snapshot
+sudo -iu hpc python3 /clusterfs/btd3-rl/agent/sweep_dashboard.py   # live table; --once = snapshot
 ```
 
 ## Collect results
 ```bash
-for d in agent/models/sweep_*/; do
-  echo "$d"; python agent/evaluate.py --model ${d}best_model --difficulty hard --episodes 20 \
-    | grep -E "win rate|round reached"
-done
+sudo -iu hpc bash -c 'source /clusterfs/miniforge3/etc/profile.d/conda.sh; conda activate btd
+for d in /clusterfs/btd3-rl/agent/models/sweep_*/; do echo "$d"
+  srun -N1 python /clusterfs/btd3-rl/agent/evaluate.py --model ${d}best_model --difficulty hard --episodes 20 \
+    | grep -E "win rate|round reached"; done'
 ```
 
 ## Editing the sweep
-- **Grid** — edit the lists at the top of `agent/sweep_configs.py`
-  (`GAMMA / ENT_COEF / LR / SEED`); every combination is one run.
-  Check the count: `python agent/sweep_configs.py --count`.
-- **Steps per run** — `--timesteps` in `agent/sweep.sbatch` (default **5M**,
-  ~3–7 h/run). Use `1000000` for a quick pass, `10000000` for a deep one.
-- **Concurrency / RAM** — `--array=…%N` caps how many run at once; `--mem` is
-  per-job RAM (~2 fit per 3.5 GB node at 1500M). Check nodes: `sinfo -o "%n %c %m"`.
-- **Freeplay sweep** — add `--freeplay` to the `python agent/train.py` line in
-  `sweep.sbatch` to chase past round 50.
+- **Grid** — `GAMMA/ENT_COEF/LR/SEED` lists at the top of `agent/sweep_configs.py`;
+  every combination is one run. Count: `python agent/sweep_configs.py --count`.
+- **Steps per run** — `--timesteps` in `agent/sweep.sbatch` (default 5M).
+- **Concurrency / RAM** — `--array=…%N` caps concurrent tasks; `--mem` is per-job RAM
+  (~2 fit per 3.5 GB node at 1500M). Nodes: `sinfo -o "%n %c %m"`.
+- **Freeplay sweep** — add `--freeplay` to the `train.py` line in `sweep.sbatch`.
 
 ## Notes
-- SLURM auto-queues configs that don't fit and backfills as jobs finish, so a
-  sweep bigger than the cluster just runs in a couple of waves.
-- Headless: no `watch.py` there. Copy a `best_model.zip` back to a desktop to watch.
+- SLURM auto-queues configs that don't fit and backfills as jobs finish.
+- Headless: no `watch.py` on the cluster — copy a `best_model.zip` off `/clusterfs`
+  to a desktop to watch.
+- The 2015-era i5 cores are slower per-core than a modern laptop; the cluster's
+  value is *parallel* runs, not single-run speed.

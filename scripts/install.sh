@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
-# One-time setup on the HPC (run from the repo root, on the login node with a
-# SHARED home so the env is visible on every compute node). Installs a modern
-# Python via miniforge — the RHEL system python (3.9) is too old for torch and
-# must NOT be replaced — then installs the project into a conda env named "btd".
+# HPC install. Run as the hpc user on the Pi login node:
+#     sudo -iu hpc bash /clusterfs/btd3-rl/scripts/install.sh
+#
+# Puts an x86_64 miniforge env + deps in /clusterfs (shared NFS, visible on every
+# node). The miniforge installer and pip run ON a compute node (via srun) because
+# the nodes are x86_64 while the Pi login node is ARM and only orchestrates.
 set -euo pipefail
-cd "$(dirname "$0")/.."   # repo root
 
-MF="$HOME/miniforge3"
-CONDA="$MF/bin/conda"
+CFS=/clusterfs
+REPO="$CFS/btd3-rl"
+MF="$CFS/miniforge3"
 
-if [ ! -x "$CONDA" ]; then
-  echo ">> installing miniforge to $MF"
-  URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
-  curl -L "$URL" -o /tmp/miniforge.sh
-  bash /tmp/miniforge.sh -b -p "$MF"
+if [ ! -x "$MF/bin/conda" ]; then
+  echo ">> downloading miniforge (x86_64) to $CFS"
+  curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
+    -o "$CFS/miniforge.sh"
+  echo ">> installing miniforge on a compute node (x86_64 binaries)"
+  srun -N1 -n1 bash "$CFS/miniforge.sh" -b -p "$MF"
 fi
 
-if ! "$CONDA" env list | grep -qE '^btd\s'; then
-  echo ">> creating conda env 'btd' (python 3.12)"
-  "$CONDA" create -y -n btd python=3.12
-fi
+echo ">> creating env 'btd' (python 3.12) + installing deps on a compute node"
+srun -N1 -n1 bash -lc "
+  '$MF/bin/conda' env list | grep -qE '^btd[[:space:]]' || '$MF/bin/conda' create -y -n btd python=3.12
+  '$MF/envs/btd/bin/python' -m pip install -U pip
+  '$MF/envs/btd/bin/python' -m pip install -e '$REPO'
+"
 
-PY="$MF/envs/btd/bin/python"
-echo ">> installing project deps into 'btd'"
-"$PY" -m pip install -U pip
-"$PY" -m pip install -e ".[rl]"
-
-echo ">> done. Verify:  conda activate btd && python -c 'import torch, sb3_contrib; print(torch.__version__)'"
-echo ">> then submit the sweep:  sbatch agent/sweep.sbatch   (watch: python agent/sweep_dashboard.py)"
+echo ">> done. verifying import on a node..."
+srun -N1 -n1 "$MF/envs/btd/bin/python" -c "import torch, sb3_contrib; print('torch', torch.__version__)"
+echo ">> env: $MF/envs/btd   repo: $REPO"

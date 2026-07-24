@@ -1,26 +1,24 @@
 #!/bin/bash
 # Hyperparameter sweep as a SLURM job array. One array task = one training run.
-# Submit from the repo root:
-#     sbatch --array=0-$(($(python agent/sweep_configs.py --count)-1)) agent/sweep.sbatch
-# (or hardcode the range below to match `sweep_configs.py --count`).
+# Submit as the hpc user from the repo:
+#     sudo -iu hpc sbatch /clusterfs/btd3-rl/agent/sweep.sbatch
+# If you change the grid size, match the range:
+#     ... sbatch --array=0-$(python agent/sweep_configs.py --count | awk '{print $1-1}') ...
 #
 #SBATCH --job-name=btd-sweep
-#SBATCH --array=0-23%16          # 24 configs; run at most 16 at once (tune to node RAM)
+#SBATCH --array=0-23%6           # 24 configs; ~6 at once (3 nodes x ~2 by 3.5G RAM)
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1        # training is single-core (env-bound)
-#SBATCH --mem=1500M              # ~2 jobs/node on 3.5G nodes; raise if jobs OOM
-#SBATCH --time=12:00:00
-#SBATCH --output=logs/sweep_%A_%a.out
-# #SBATCH --partition=compute    # uncomment + set to your partition (check: sinfo)
+#SBATCH --mem=1500M
+#SBATCH --time=24:00:00
+#SBATCH --chdir=/clusterfs/btd3-rl
+#SBATCH --output=/clusterfs/btd3-rl/logs/sweep_%A_%a.out
 
 set -euo pipefail
-export OMP_NUM_THREADS=1         # keep each job truly single-threaded (net is tiny)
-cd "${SLURM_SUBMIT_DIR:-.}"
-mkdir -p logs
-
-# Activate the conda env created by scripts/install.sh.
-source "$HOME/miniforge3/etc/profile.d/conda.sh"
+export OMP_NUM_THREADS=1
+mkdir -p /clusterfs/btd3-rl/logs
+source /clusterfs/miniforge3/etc/profile.d/conda.sh
 conda activate btd
 
 ARGS=$(python agent/sweep_configs.py "$SLURM_ARRAY_TASK_ID")

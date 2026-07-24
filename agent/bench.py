@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--timesteps", type=int, default=30000)
+    p.add_argument("--timesteps", type=int, default=10000)
     p.add_argument("--n-envs", type=int, default=4)
     args = p.parse_args()
 
