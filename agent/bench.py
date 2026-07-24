@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import resource
 import socket
 import time
 import warnings
@@ -61,7 +62,11 @@ def main() -> None:
     model.learn(total_timesteps=args.timesteps)
     dt = time.time() - t0
     fps = args.timesteps / dt
-    print(f"[{host}] RESULT: {fps:.0f} steps/s  "
+    # Peak resident memory of this process = what one training job needs. Set the
+    # sweep's --mem from this (+ ~20% headroom) to pack as many jobs/node as RAM
+    # allows. Linux ru_maxrss is in KB.
+    peak_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    print(f"[{host}] RESULT: {fps:.0f} steps/s  peak_RSS={peak_mb:.0f}MB  "
           f"({args.timesteps} steps in {dt:.1f}s)  PASS", flush=True)
 
 
