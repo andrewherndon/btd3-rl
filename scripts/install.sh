@@ -23,7 +23,7 @@ echo ">> creating env 'btd' (python 3.12) + installing deps on a compute node"
 srun -N1 -n1 bash -lc "
   '$MF/bin/conda' env list | grep -qE '^btd[[:space:]]' || '$MF/bin/conda' create -y -n btd python=3.12
   '$MF/envs/btd/bin/python' -m pip install -U pip
-  '$MF/envs/btd/bin/python' -m pip install -e '$REPO'
+  '$MF/envs/btd/bin/python' -m pip install -e '$REPO[rl]'
 "
 
 echo ">> done. verifying import on a node..."
