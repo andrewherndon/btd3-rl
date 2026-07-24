@@ -27,4 +27,5 @@ python agent/train.py \
   --timesteps 5000000 --n-envs 4 \
   --difficulties easy,medium,hard --eval-difficulty hard \
   --eval-freq 100000 \
+  --tb-log /clusterfs/btd3-rl/tb \
   $ARGS

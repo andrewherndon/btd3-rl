@@ -37,13 +37,14 @@ def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float 
 
 
 def build_model(vec_env, seed: int, gamma: float = 0.999, ent_coef: float = 0.01,
-                learning_rate: float = 3e-4) -> MaskablePPO:
+                learning_rate: float = 3e-4, tensorboard_log=None) -> MaskablePPO:
     return MaskablePPO(
         # Dict observation -> MultiInputPolicy (per-key encoders, then concat).
         "MultiInputPolicy",
         vec_env,
         seed=seed,
         verbose=1,
+        tensorboard_log=tensorboard_log,   # None = off; a dir = log curves for TensorBoard
         # --- rollout / optimization ---
         n_steps=2048,        # env steps per env before an update; batch = n_steps*n_envs
         batch_size=256,      # minibatch size for the SGD epochs
@@ -93,6 +94,9 @@ def main() -> None:
     p.add_argument("--learning-rate", type=float, default=3e-4)
     # Play past round 50 (procedural 51-149) instead of winning at 50.
     p.add_argument("--freeplay", action="store_true")
+    # Directory for TensorBoard logs (curves). None = off. The run is named after
+    # the save-path's parent dir, so sweep configs appear as separate lines.
+    p.add_argument("--tb-log", default=None)
     args = p.parse_args()
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
@@ -117,8 +121,10 @@ def main() -> None:
     )
 
     model = build_model(train_env, args.seed, gamma=args.gamma,
-                        ent_coef=args.ent_coef, learning_rate=args.learning_rate)
-    model.learn(total_timesteps=args.timesteps, callback=eval_cb, progress_bar=False)
+                        ent_coef=args.ent_coef, learning_rate=args.learning_rate,
+                        tensorboard_log=args.tb_log)
+    model.learn(total_timesteps=args.timesteps, callback=eval_cb, progress_bar=False,
+                tb_log_name=save_path.parent.name)
     model.save(str(save_path))
     print(f"saved model -> {save_path}.zip")
 
