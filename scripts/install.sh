@@ -20,9 +20,12 @@ if [ ! -x "$MF/bin/conda" ]; then
 fi
 
 echo ">> creating env 'btd' (python 3.12) + installing deps on a compute node"
+# Install CPU-only torch FIRST (these nodes have no GPU) so the [rl] extra finds
+# torch already satisfied and pip skips the ~2 GB CUDA build.
 srun -N1 -n1 bash -lc "
   '$MF/bin/conda' env list | grep -qE '^btd[[:space:]]' || '$MF/bin/conda' create -y -n btd python=3.12
   '$MF/envs/btd/bin/python' -m pip install -U pip
+  '$MF/envs/btd/bin/python' -m pip install torch --index-url https://download.pytorch.org/whl/cpu
   '$MF/envs/btd/bin/python' -m pip install -e '$REPO[rl]'
 "
 
