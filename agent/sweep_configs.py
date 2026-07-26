@@ -15,7 +15,8 @@ import sys
 GAMMA = [0.997, 0.999]          # discount — the lever that broke the hoarding plateau
 ENT_COEF = [0.005, 0.01, 0.02]  # exploration
 LR = [1e-4, 3e-4]               # learning rate — stability/speed
-SEED = [0, 1]                   # robustness: does it win reliably, or just once?
+SEED = [0]                      # single seed for ranking; re-confirm the winner
+                                # across seeds in a short follow-up run
 
 CONFIGS = list(itertools.product(GAMMA, ENT_COEF, LR, SEED))
 
