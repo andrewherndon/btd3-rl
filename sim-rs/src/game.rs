@@ -116,12 +116,12 @@ pub(crate) struct BloonsSim {
 
     // Round table (built once at init).
     pub round_table: HashMap<u16, Vec<u8>>,
-    max_round: u16,
+    pub(crate) max_round: u16,
 
     // Game state.
     pub money: u32,
     pub lives: u32,
-    cost_mult: f64,
+    pub(crate) cost_mult: f64,
     pub round: u16,
     glob_speed_mod: f64,
 
@@ -366,7 +366,7 @@ impl BloonsSim {
 
     // -- internal helpers -------------------------------------------------------
 
-    fn price(&self, base_cost: u32) -> u32 {
+    pub fn price(&self, base_cost: u32) -> u32 {
         // Python's round() uses banker's rounding (round half to even),
         // while Rust's f64::round() uses round half away from zero.
         // We implement Python's semantics to match exactly.

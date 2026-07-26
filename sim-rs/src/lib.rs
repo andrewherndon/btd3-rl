@@ -195,14 +195,26 @@ impl PyBloonsSim {
             d.insert("upgrade3".to_string(), t.upgrade3.to_object(py));
             d.insert("upgrade4".to_string(), t.upgrade4.to_object(py));
             d.insert("pop_count".to_string(), t.pop_count.to_object(py));
+            d.insert("placed_round".to_string(), t.placed_round.to_object(py));
             d
         }).collect()
+    }
+
+    /// Calculate the actual price for a base cost (applies difficulty multiplier).
+    fn price(&self, base_cost: u32) -> u32 {
+        self.inner.price(base_cost)
     }
 
     fn get_next_round_bloons(&self) -> Vec<u8> {
         self.inner.round_table.get(&(self.inner.round + 1))
             .cloned().unwrap_or_default()
     }
+
+    /// Env-facing properties for observation encoding.
+    #[getter] fn max_round(&self) -> u16 { self.inner.max_round }
+    #[getter] fn cost_mult(&self) -> f64 { self.inner.cost_mult }
+    #[getter] fn difficulty(&self) -> String { self.inner.config.difficulty.clone() }
+    #[getter] fn freeplay(&self) -> bool { self.inner.config.freeplay }
 
     fn __repr__(&self) -> String {
         format!("BloonsSim(round={}, money={}, lives={}, game_over={}, won={})",
