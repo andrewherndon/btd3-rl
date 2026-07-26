@@ -46,11 +46,17 @@ if [ ! -x "$CARGO_HOME/bin/cargo" ]; then
 fi
 
 echo ">> building btd_rs into the env (release) on a compute node"
+# Use `maturin build -i <python>` + pip install rather than `maturin develop`:
+# develop requires an *activated* venv/conda env (it ignores which maturin binary
+# you invoke), which we don't have under srun. build targets the interpreter
+# directly. Clean the wheels dir first so the glob can't pick up a stale build.
 srun -N1 -n1 bash -lc "
   export RUSTUP_HOME='$RUSTUP_HOME' CARGO_HOME='$CARGO_HOME'
   export PATH=\"\$CARGO_HOME/bin:\$PATH\"
   '$MF/envs/btd/bin/python' -m pip install -U maturin
-  '$MF/envs/btd/bin/maturin' develop --release -m '$REPO/sim-rs/Cargo.toml'
+  rm -rf '$REPO/sim-rs/target/wheels'
+  '$MF/envs/btd/bin/maturin' build --release -m '$REPO/sim-rs/Cargo.toml' -i '$MF/envs/btd/bin/python'
+  '$MF/envs/btd/bin/python' -m pip install --force-reinstall --no-deps '$REPO'/sim-rs/target/wheels/*.whl
 "
 
 echo ">> done. verifying imports on a node..."
