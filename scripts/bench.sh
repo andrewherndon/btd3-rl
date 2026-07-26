@@ -4,8 +4,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
-echo ">> submitting benchmark (blocks until all nodes finish, ~1-2 min)..."
-jobid=$(sbatch --wait --parsable agent/bench.sbatch)
+# Optional: --backend rust (default python). Picks which sim bench.py measures.
+backend=python
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --backend) backend="$2"; shift 2 ;;
+    --backend=*) backend="${1#*=}"; shift ;;
+    *) echo "unknown arg: $1" >&2; exit 1 ;;
+  esac
+done
+
+echo ">> submitting benchmark (backend=$backend, blocks until all nodes finish, ~1-2 min)..."
+jobid=$(sbatch --wait --parsable --export=ALL,BACKEND="$backend" agent/bench.sbatch)
 
 echo
 echo "=== per-node benchmark results (job $jobid) ==="

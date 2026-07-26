@@ -18,5 +18,6 @@ mkdir -p /clusterfs/btd3-rl/logs
 source /clusterfs/miniforge3/etc/profile.d/conda.sh
 conda activate btd
 
-# --label prefixes each node's output with its task id.
-srun --label python agent/bench.py --timesteps 10000
+# --label prefixes each node's output with its task id. BACKEND is exported by
+# scripts/bench.sh (default python); "rust" uses the btd_rs sim.
+srun --label python agent/bench.py --timesteps 10000 --backend "${BACKEND:-python}"

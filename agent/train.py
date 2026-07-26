@@ -18,21 +18,24 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 from btd.game import SimConfig
-from envs import BloonsEnv
+from envs.bloons_env import BloonsEnv as PyBloonsEnv
+from envs.bloons_env_rs import BloonsEnv as RsBloonsEnv
 
 
 def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float = 0.0,
-             difficulty_choices: tuple[str, ...] = (), freeplay: bool = False):
+             difficulty_choices: tuple[str, ...] = (), freeplay: bool = False,
+             backend: str = "python"):
     """Factory for one Monitor-wrapped env. Each reset draws a fresh sim seed;
     Monitor records episode reward/length for logging. Training aids (all off for
     eval): `curriculum_p` starts some episodes mid-game, `diversity_bonus` rewards
     new tower types, `difficulty_choices` randomizes the difficulty per episode
     (domain randomization). `freeplay` lets episodes run past round 50 (procedural
-    51-149) instead of winning at 50."""
+    51-149) instead of winning at 50. `backend` selects "python" or "rust" sim."""
+    EnvCls = RsBloonsEnv if backend == "rust" else PyBloonsEnv
     def _init():
-        return Monitor(BloonsEnv(SimConfig(difficulty=difficulty, freeplay=freeplay),
-                                 curriculum_p=curriculum_p, diversity_bonus=diversity_bonus,
-                                 difficulty_choices=difficulty_choices))
+        return Monitor(EnvCls(SimConfig(difficulty=difficulty, freeplay=freeplay),
+                              curriculum_p=curriculum_p, diversity_bonus=diversity_bonus,
+                              difficulty_choices=difficulty_choices))
     return _init
 
 
@@ -97,17 +100,20 @@ def main() -> None:
     # Directory for TensorBoard logs (curves). None = off. The run is named after
     # the save-path's parent dir, so sweep configs appear as separate lines.
     p.add_argument("--tb-log", default=None)
+    # Simulation backend: "python" (numpy) or "rust" (PyO3, ~20× faster).
+    p.add_argument("--backend", choices=["python", "rust"], default="python")
     args = p.parse_args()
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
     VecEnv = SubprocVecEnv if args.vec == "subproc" else DummyVecEnv
     diffs = tuple(d.strip() for d in args.difficulties.split(","))
     train_env = VecEnv([make_env(diffs[0], args.curriculum_p, args.diversity_bonus,
-                                 diffs, args.freeplay)
+                                 diffs, args.freeplay, args.backend)
                         for _ in range(args.n_envs)])
     # Separate eval env: fixed difficulty, no scaffolds/randomization, so best_model
     # is selected on honest full round-1 games at one difficulty.
-    eval_env = DummyVecEnv([make_env(args.eval_difficulty, 0.0, 0.0, (), args.freeplay)])
+    eval_env = DummyVecEnv([make_env(args.eval_difficulty, 0.0, 0.0, (), args.freeplay,
+                                     args.backend)])
 
     save_path = Path(args.save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)

@@ -22,6 +22,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--timesteps", type=int, default=10000)
     p.add_argument("--n-envs", type=int, default=4)
+    p.add_argument("--backend", choices=["python", "rust"], default="python")
     args = p.parse_args()
 
     host = socket.gethostname()
@@ -35,10 +36,13 @@ def main() -> None:
     from stable_baselines3.common.vec_env import DummyVecEnv
 
     from btd.game import SimConfig
-    from envs import BloonsEnv
+    if args.backend == "rust":
+        from envs.bloons_env_rs import BloonsEnv
+    else:
+        from envs import BloonsEnv
 
     print(f"[{host}] torch {torch.__version__}  numpy {np.__version__}  "
-          f"threads={torch.get_num_threads()}", flush=True)
+          f"threads={torch.get_num_threads()}  backend={args.backend}", flush=True)
 
     # --- sanity: env builds, obs in space, mask non-empty, one step runs ---
     env = BloonsEnv(SimConfig(difficulty="easy"))

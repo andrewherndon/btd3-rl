@@ -10,6 +10,9 @@ set -euo pipefail
 CFS=/clusterfs
 REPO="$CFS/btd3-rl"
 MF="$CFS/miniforge3"
+# Keep the rust toolchain on shared NFS so every node sees the same cargo/rustc.
+export RUSTUP_HOME="$CFS/rustup"
+export CARGO_HOME="$CFS/cargo"
 
 if [ ! -x "$MF/bin/conda" ]; then
   echo ">> downloading miniforge (x86_64) to $CFS"
@@ -29,6 +32,28 @@ srun -N1 -n1 bash -lc "
   '$MF/envs/btd/bin/python' -m pip install -e '$REPO[rl]'
 "
 
-echo ">> done. verifying import on a node..."
-srun -N1 -n1 "$MF/envs/btd/bin/python" -c "import torch, sb3_contrib; print('torch', torch.__version__)"
+# --- Rust sim backend (btd_rs) -------------------------------------------------
+# The sim-rs crate is a compiled x86_64 extension (not in git), so it must be
+# built on a compute node, not the ARM Pi. maturin installs the .so into the
+# shared conda env, so one build is visible on every node.
+if [ ! -x "$CARGO_HOME/bin/cargo" ]; then
+  echo ">> installing rust toolchain to $CFS (shared) on a compute node"
+  srun -N1 -n1 bash -lc "
+    export RUSTUP_HOME='$RUSTUP_HOME' CARGO_HOME='$CARGO_HOME'
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --no-modify-path --profile minimal
+  "
+fi
+
+echo ">> building btd_rs into the env (release) on a compute node"
+srun -N1 -n1 bash -lc "
+  export RUSTUP_HOME='$RUSTUP_HOME' CARGO_HOME='$CARGO_HOME'
+  export PATH=\"\$CARGO_HOME/bin:\$PATH\"
+  '$MF/envs/btd/bin/python' -m pip install -U maturin
+  '$MF/envs/btd/bin/maturin' develop --release -m '$REPO/sim-rs/Cargo.toml'
+"
+
+echo ">> done. verifying imports on a node..."
+srun -N1 -n1 "$MF/envs/btd/bin/python" -c \
+  "import torch, sb3_contrib, btd_rs; print('torch', torch.__version__, '| btd_rs OK')"
 echo ">> env: $MF/envs/btd   repo: $REPO"
