@@ -23,8 +23,8 @@ from envs.mask import build_action_mask, compute_cell_validity
 from envs.observation import encode
 
 
-def play(model, difficulty, seed, deterministic, log):
-    sim = BloonsSim(SimConfig(difficulty=difficulty, seed=seed))
+def play(model, difficulty, seed, deterministic, log, freeplay=False):
+    sim = BloonsSim(SimConfig(difficulty=difficulty, seed=seed, freeplay=freeplay))
     cell_valid = compute_cell_validity(sim)
     econ_streak = 0
     counts = Counter()
@@ -76,12 +76,13 @@ def main() -> None:
     p.add_argument("--difficulty", default="easy", choices=["easy", "medium", "hard"])
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--stochastic", action="store_true")
+    p.add_argument("--freeplay", action="store_true", help="play past round 50")
     p.add_argument("--no-log", action="store_true", help="summary only")
     args = p.parse_args()
 
     model = MaskablePPO.load(args.model)
     log: list[str] = []
-    r = play(model, args.difficulty, args.seed, not args.stochastic, log)
+    r = play(model, args.difficulty, args.seed, not args.stochastic, log, args.freeplay)
 
     if not args.no_log:
         print("\n".join(log))

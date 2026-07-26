@@ -1,0 +1,13 @@
+[build-system]
+requires = ["maturin>=1.0"]
+build-backend = "maturin"
+
+[project]
+name = "btd_rs"
+version = "0.1.0"
+description = "BTD3 simulator — Rust backend"
+requires-python = ">=3.11"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "btd_rs"

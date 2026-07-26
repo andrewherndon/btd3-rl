@@ -19,6 +19,32 @@ Build a fast, deterministic Python simulation of *Bloons Tower Defense 3* so tha
 - Full round table 1-50 hardcoded from `BuildLevels`, 51-149 procedural. `freeplay` flag gates 51+.
 - Pygame renderer with placeholder graphics + interactive playtest (`sim/play.py`).
 
+## Repo layout (sim + agent monorepo)
+
+The RL agent may live in this repo alongside the sim. The "simulation only"
+rule above governs what the **assistant** generates unprompted — it is not a
+constraint on where the user's own agent code lives. Structure keeps the two
+decoupled at the Gymnasium `Env` boundary so the sim core stays clean and
+dependency-light:
+
+```
+BTD/
+├── sim/                  # the environment
+│   └── btd/              # pure Python + numpy core (the contract)
+├── envs/                 # thin Gymnasium wrapper over BloonsSim (when it lands)
+├── agent/                # RL code (user-owned): train.py, models/, configs/
+├── pyproject.toml        # optional-deps groups: [sim], [render], [rl]
+└── ...
+```
+
+- Dependency direction is one-way: `agent/` → `envs/` → `sim/btd/`. Nothing
+  flows backward; the sim never imports from `agent/` or `envs/`.
+- `btd/` depends only on numpy. pygame (`render.py`, `play.py`) and RL deps
+  (torch, gymnasium, etc.) stay out of the sim core, isolated via optional
+  dependency groups so `pip install -e .[sim]` pulls neither.
+- The `Env` boundary is the seam: if the sim is ever published standalone, it
+  can be split into its own repo without touching the core.
+
 ## Where information lives
 
 - `NOTES.md` (this dir) — game-specific facts learned from the decompile: rank stats, immunities, round/economy formulas, per-track stage offsets, symbol IDs, sources for things-still-needed-from-the-SWF.

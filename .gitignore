@@ -15,3 +15,6 @@ agent/models/
 
 # Archived model checkpoints (large binaries kept local, not tracked).
 history/**/*.zip
+
+# Rust build artifacts.
+sim-rs/target/

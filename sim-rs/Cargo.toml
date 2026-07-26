@@ -1,0 +1,20 @@
+[package]
+name = "btd_rs"
+version = "0.1.0"
+edition = "2021"
+description = "BTD3 simulator core — Rust backend for RL training"
+
+[lib]
+name = "btd_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rand = "0.8"
+rand_chacha = "0.3"
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310", "hashbrown"] }
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
