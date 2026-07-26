@@ -1,18 +1,19 @@
 /// Deterministic RNG wrapper using PCG64 (numpy-compatible algorithm).
 ///
-/// Uses Pcg64Mcg (DXSM output function) — the same algorithm as numpy's
-/// default Generator (PCG64) since numpy 1.17. This gives identical random
-/// sequences for the same seed, making the simulator bit-exact with Python.
+/// Uses Pcg64 (Lcg128Xsl64) — the same algorithm as numpy's default
+/// Generator (PCG64). Both use LCG 128/64 with the XSL RR output function.
+/// This gives identical random sequences for the same seed, making the
+/// simulator bit-exact with Python.
 ///
 /// Two sub-streams: main (gameplay RNG) and rounds (rounds 51+ generation).
 
 use rand::RngCore;
 use rand::SeedableRng;
-use rand_pcg::Pcg64Mcg;
+use rand_pcg::Pcg64;
 
 #[derive(Clone, Debug)]
 pub(crate) struct GameRng {
-    inner: Pcg64Mcg,
+    inner: Pcg64,
 }
 
 impl GameRng {
@@ -20,11 +21,11 @@ impl GameRng {
     ///   stream 0 — main game RNG (jitter, pop money, snap freeze, etc.)
     ///   stream 1 — round generation (rounds 51+)
     pub fn from_seed(seed: u64) -> (GameRng, GameRng) {
-        let mut main = Pcg64Mcg::seed_from_u64(seed);
+        let mut main = Pcg64::seed_from_u64(seed);
         let stream1_seed: u64 = main.next_u64();
         (
             GameRng { inner: main },
-            GameRng { inner: Pcg64Mcg::seed_from_u64(stream1_seed) },
+            GameRng { inner: Pcg64::seed_from_u64(stream1_seed) },
         )
     }
 
