@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// All path data for a simulation: one array per branch.
 ///

@@ -297,16 +297,16 @@ impl BloonsSim {
             let t = match self.tower_by_id(tower_id) { Some(t) => t, None => return false };
             (t.type_, t.upgrade1, t.upgrade2, t.upgrade3, t.upgrade4)
         };
-        if !upgrades::UPGRADES.iter().any(|(n, _)| *n == upgrade_name) { return false; }
+        let spec = match upgrades::UPGRADES.iter().find(|(n, _)| *n == upgrade_name) {
+            Some((_, s)) => s,
+            None => return false,
+        };
         if !upgrades::can_upgrade(tower_type, upgrade_name, u1, u2, u3, u4) { return false; }
-        let spec_cost = upgrades::UPGRADES.iter()
-            .find(|(n, _)| *n == upgrade_name).map(|(_, s)| s.cost).unwrap();
-        let price = self.price(spec_cost);
+        let price = self.price(spec.cost);
         if price > self.money { return false; }
         self.money -= price;
         let tower = self.tower_by_id_mut(tower_id).unwrap();
         tower.spent_on_me += price;
-        let spec = upgrades::UPGRADES.iter().find(|(n, _)| *n == upgrade_name).map(|(_, s)| s).unwrap();
         apply_upgrade(tower, upgrade_name, spec);
         true
     }
@@ -478,11 +478,11 @@ impl BloonsSim {
             if self.towers[i].time_since_last_shot <= effective { continue; }
 
             // Read upgrade flags for this tower.
-            let (u2, u4, actual_icebreak, actual_leadbreak) = {
+            let (actual_icebreak, actual_leadbreak) = {
                 let t = &self.towers[i];
                 let ib = t.icebreak || self.tower_has_icebreak(tt, t.upgrade3, t.upgrade4);
                 let lb = t.leadbreak || self.tower_has_leadbreak(tt, t.upgrade4);
-                (t.upgrade2, t.upgrade4, ib, lb)
+                (ib, lb)
             };
 
             // Acquire target using the stored fields.

@@ -104,8 +104,13 @@ pub(crate) fn next_path_upgrade(
 }
 
 fn find_upgrade_name(prefix: &str, suffix: &str) -> Option<&'static str> {
-    let target = format!("{}{}", prefix, suffix);
-    UPGRADES.iter().find(|(name, _)| *name == target).map(|(name, _)| *name)
+    // Linear scan avoids allocation. UPGRADES is small (≤32 entries).
+    let expected_len = prefix.len() + suffix.len();
+    UPGRADES.iter()
+        .find(|(name, _)| name.len() == expected_len
+              && name.starts_with(prefix)
+              && name.ends_with(suffix))
+        .map(|(name, _)| *name)
 }
 
 /// Check whether an upgrade can be bought (prerequisite flags).
