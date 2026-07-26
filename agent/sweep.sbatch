@@ -9,14 +9,17 @@
 #SBATCH --array=0-11%6           # 12 configs; ~6 at once (3 nodes x ~2 by 3.5G RAM)
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1        # training is single-core (env-bound)
+#SBATCH --cpus-per-task=2        # 2 cores/job => 2 jobs/node (even 2/2/2 spread
+                                 # across all 3 nodes; RAM isn't scheduled here, so
+                                 # cores are what forces the balance). Also gives
+                                 # torch 2 threads for a faster PPO update.
 #SBATCH --mem=1500M
 #SBATCH --time=24:00:00
 #SBATCH --chdir=/clusterfs/btd3-rl
 #SBATCH --output=/clusterfs/btd3-rl/logs/sweep_%A_%a.out
 
 set -euo pipefail
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=2
 mkdir -p /clusterfs/btd3-rl/logs
 source /clusterfs/miniforge3/etc/profile.d/conda.sh
 conda activate btd
