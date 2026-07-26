@@ -18,3 +18,4 @@ history/**/*.zip
 
 # Rust build artifacts.
 sim-rs/target/
+sim-rs/Cargo.lock
