@@ -6,7 +6,7 @@
 #     ... sbatch --array=0-$(python agent/sweep_configs.py --count | awk '{print $1-1}') ...
 #
 #SBATCH --job-name=btd-sweep
-#SBATCH --array=0-11%6           # 12 configs; ~6 at once (3 nodes x ~2 by 3.5G RAM)
+#SBATCH --array=0-5%6            # 6 configs; all at once (3 nodes x 2 jobs)
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2        # 2 cores/job => 2 jobs/node (even 2/2/2 spread
@@ -27,8 +27,10 @@ conda activate btd
 ARGS=$(python agent/sweep_configs.py "$SLURM_ARRAY_TASK_ID")
 echo "task $SLURM_ARRAY_TASK_ID -> $ARGS"
 python agent/train.py \
-  --timesteps 1500000 --n-envs 4 --backend rust \
-  --difficulties easy,medium,hard --eval-difficulty hard \
+  --timesteps 5000000 --n-envs 4 --backend rust --freeplay \
+  --difficulties easy --eval-difficulty easy \
+  --ent-coef 0.005 \
+  --curriculum-p 0.3 --curriculum-min 8 --curriculum-max 45 \
   --eval-freq 100000 \
   --tb-log /clusterfs/btd3-rl/tb \
   $ARGS
