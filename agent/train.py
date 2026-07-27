@@ -24,18 +24,25 @@ from envs.bloons_env_rs import BloonsEnv as RsBloonsEnv
 
 def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float = 0.0,
              difficulty_choices: tuple[str, ...] = (), freeplay: bool = False,
-             backend: str = "python"):
+             backend: str = "python", curriculum_min: int = 8, curriculum_max: int = 22,
+             milestone_bonus: float = 0.0, milestone_every: int = 0):
     """Factory for one Monitor-wrapped env. Each reset draws a fresh sim seed;
     Monitor records episode reward/length for logging. Training aids (all off for
-    eval): `curriculum_p` starts some episodes mid-game, `diversity_bonus` rewards
-    new tower types, `difficulty_choices` randomizes the difficulty per episode
-    (domain randomization). `freeplay` lets episodes run past round 50 (procedural
-    51-149) instead of winning at 50. `backend` selects "python" or "rust" sim."""
+    eval): `curriculum_p` starts some episodes mid-game at a round drawn uniformly
+    from [curriculum_min, curriculum_max], `diversity_bonus` rewards new tower
+    types, `difficulty_choices` randomizes the difficulty per episode (domain
+    randomization). `freeplay` lets episodes run past round 50 (procedural 51-149)
+    instead of winning at 50. `backend` selects "python" or "rust" sim.
+
+    Note: curriculum seeds the round + accumulated money but NO towers, so seeds
+    much past ~45 start on an empty map that can't survive from scratch."""
     EnvCls = RsBloonsEnv if backend == "rust" else PyBloonsEnv
     def _init():
         return Monitor(EnvCls(SimConfig(difficulty=difficulty, freeplay=freeplay),
                               curriculum_p=curriculum_p, diversity_bonus=diversity_bonus,
-                              difficulty_choices=difficulty_choices))
+                              difficulty_choices=difficulty_choices,
+                              curriculum_min=curriculum_min, curriculum_max=curriculum_max,
+                              milestone_bonus=milestone_bonus, milestone_every=milestone_every))
     return _init
 
 
@@ -88,6 +95,15 @@ def main() -> None:
     # Fraction of training episodes that start mid-game at a hard round (dense
     # MOAB-era experience). Eval always uses full round-1 games (0.0).
     p.add_argument("--curriculum-p", type=float, default=0.5)
+    # Round range curriculum episodes start from (uniform). Default [8, 22]. Seeds
+    # give money but no towers, so rounds >~45 start on an unsurvivable empty map.
+    p.add_argument("--curriculum-min", type=int, default=8)
+    p.add_argument("--curriculum-max", type=int, default=22)
+    # Freeplay milestone reward (train env only; eval stays honest). +bonus at
+    # round 50 when --milestone-every 0, or every N rounds when >0. Restores the
+    # reachable "pull" that freeplay deletes by moving the win to round 149.
+    p.add_argument("--milestone-bonus", type=float, default=0.0)
+    p.add_argument("--milestone-every", type=int, default=0)
     # One-time reward for first placing each tower type. Default OFF: dart+bomb
     # already wins the game, so diversity was a non-problem; kept as a knob only.
     p.add_argument("--diversity-bonus", type=float, default=0.0)
@@ -102,13 +118,21 @@ def main() -> None:
     p.add_argument("--tb-log", default=None)
     # Simulation backend: "python" (numpy) or "rust" (PyO3, ~20× faster).
     p.add_argument("--backend", choices=["python", "rust"], default="python")
+    # Warm-start: load a saved policy and fine-tune instead of fresh init. Use a
+    # lower --learning-rate (e.g. 1e-4) so fine-tuning doesn't wreck the pretrain.
+    p.add_argument("--init-from", default=None,
+                   help="path to a saved model to warm-start from (fine-tune)")
     args = p.parse_args()
 
     # Multiple envs still help PPO (decorrelated batch) even at equal throughput.
     VecEnv = SubprocVecEnv if args.vec == "subproc" else DummyVecEnv
     diffs = tuple(d.strip() for d in args.difficulties.split(","))
     train_env = VecEnv([make_env(diffs[0], args.curriculum_p, args.diversity_bonus,
-                                 diffs, args.freeplay, args.backend)
+                                 diffs, args.freeplay, args.backend,
+                                 curriculum_min=args.curriculum_min,
+                                 curriculum_max=args.curriculum_max,
+                                 milestone_bonus=args.milestone_bonus,
+                                 milestone_every=args.milestone_every)
                         for _ in range(args.n_envs)])
     # Separate eval env: fixed difficulty, no scaffolds/randomization, so best_model
     # is selected on honest full round-1 games at one difficulty.
@@ -126,9 +150,20 @@ def main() -> None:
         deterministic=True,
     )
 
-    model = build_model(train_env, args.seed, gamma=args.gamma,
-                        ent_coef=args.ent_coef, learning_rate=args.learning_rate,
-                        tensorboard_log=args.tb_log)
+    if args.init_from:
+        # Fine-tune an existing policy. custom_objects rebuilds the LR/clip
+        # schedules at the new values; gamma/ent_coef override the saved scalars.
+        model = MaskablePPO.load(
+            args.init_from, env=train_env,
+            custom_objects={"learning_rate": args.learning_rate, "clip_range": 0.2},
+            tensorboard_log=args.tb_log, gamma=args.gamma, ent_coef=args.ent_coef,
+        )
+        print(f"warm-started from {args.init_from} "
+              f"(lr={args.learning_rate}, gamma={args.gamma}, ent={args.ent_coef})")
+    else:
+        model = build_model(train_env, args.seed, gamma=args.gamma,
+                            ent_coef=args.ent_coef, learning_rate=args.learning_rate,
+                            tensorboard_log=args.tb_log)
     model.learn(total_timesteps=args.timesteps, callback=eval_cb, progress_bar=False,
                 tb_log_name=save_path.parent.name)
     model.save(str(save_path))

@@ -66,9 +66,10 @@ def encode(sim: BloonsSim) -> dict[str, np.ndarray]:
         tower_mask[i] = 1.0
 
     return {
-        # log-compressed: unbounded and multiplicatively meaningful.
+        # log-compressed: unbounded and multiplicatively meaningful. Clipped to
+        # 1.0 so deep-round hoards (or high curriculum seeds) stay in the Box.
         "money": np.array(
-            [math.log1p(sim.money) / math.log1p(MONEY_SCALE)], dtype=np.float32
+            [min(math.log1p(sim.money) / math.log1p(MONEY_SCALE), 1.0)], dtype=np.float32
         ),
         "lives": np.array([sim.lives / start_lives], dtype=np.float32),
         # Normalize round against the win target: 50 normally, or the full

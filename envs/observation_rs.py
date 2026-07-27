@@ -53,7 +53,7 @@ def encode(sim) -> dict[str, np.ndarray]:
     next_round_counts = np.clip(counts / THREAT_SCALE, 0.0, 1.0)
 
     return {
-        "money": np.array([math.log1p(sim.money) / math.log1p(MONEY_SCALE)], dtype=np.float32),
+        "money": np.array([min(math.log1p(sim.money) / math.log1p(MONEY_SCALE), 1.0)], dtype=np.float32),
         "lives": np.array([sim.lives / start_lives], dtype=np.float32),
         "round": np.array([
             min(sim.round / (sim.max_round if sim.freeplay else WIN_ROUND), 1.0)

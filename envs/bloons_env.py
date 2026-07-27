@@ -73,6 +73,8 @@ class BloonsEnv(gym.Env):
         curriculum_max: int = CURRICULUM_MAX_ROUND,
         diversity_bonus: float = DIVERSITY_BONUS,
         difficulty_choices: tuple[str, ...] = (),
+        milestone_bonus: float = 0.0,
+        milestone_every: int = 0,
     ) -> None:
         super().__init__()
         # Template config; the per-episode seed is filled in at reset() for
@@ -85,6 +87,8 @@ class BloonsEnv(gym.Env):
         self.curriculum_min = curriculum_min
         self.curriculum_max = curriculum_max
         self.diversity_bonus = diversity_bonus
+        self.milestone_bonus = milestone_bonus
+        self.milestone_every = milestone_every
         # If non-empty, each episode samples a difficulty from this pool (domain
         # randomization) so one policy learns to adapt to the economy (prices /
         # lives, which are in the obs). Empty = fixed to the template difficulty.
@@ -189,9 +193,21 @@ class BloonsEnv(gym.Env):
         if self.sim.game_over and not self.sim.won:
             return reward + LOSS_PENALTY, True          # lost
         reward += ROUND_CLEAR_BONUS                     # survived the round
+        reward += self._milestone_reward()              # freeplay stepping-stone
         if self.sim.won:
             return reward + WIN_BONUS, True             # won the game
         return reward, False
+
+    def _milestone_reward(self) -> float:
+        """Freeplay stepping-stone bonus: restores a reachable pull past round 50.
+        milestone_every==0 -> once at round 50; >0 -> every N rounds."""
+        if not self._cfg_template.freeplay or self.milestone_bonus <= 0.0:
+            return 0.0
+        r = self.sim.round
+        if (self.milestone_every and r % self.milestone_every == 0) or \
+           (not self.milestone_every and r == 50):
+            return self.milestone_bonus
+        return 0.0
 
     def _info(self) -> dict[str, Any]:
         return {
