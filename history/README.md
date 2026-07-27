@@ -271,3 +271,109 @@ difficulty per episode (train.py `--difficulties easy,medium,hard`), so one poli
 trains across the whole economy and learns to adapt (prices/lives are in its obs).
 Eval stays fixed (`--eval-difficulty`, default hard) for honest best_model
 selection. Small change, and the elegant cure for the brittleness.
+
+## Rust sim backend + HPC cluster (2026-07-25)
+
+Two infrastructure changes to train faster and in parallel.
+
+**Rust sim** (`sim-rs/`, module `btd_rs`, PyO3/maturin; DeepSeek-authored). Wired
+in via `envs/bloons_env_rs.py` (+ `observation_rs.py`, `mask_rs.py`) and a
+`--backend {python,rust}` flag on `train.py`. Verified legitimate:
+- **Behavioral parity.** run13 (trained entirely on the *Python* sim) evals
+  *identically* on the Rust env: 30/30 easy, 0/30 medium/hard, near-identical
+  round-reached and lives (99.9 vs 100.0 — the gap is only RNG jitter). A
+  Python-trained policy transferring with matching win-rate means obs/mask/sim
+  dynamics match where it counts.
+- **RNG is NOT bit-exact with numpy** (the crate docstring overclaimed). numpy
+  seeds PCG64 via `SeedSequence`, `.spawn()` substreams, Lemire-rejection
+  `integers()`; the Rust uses `seed_from_u64` + `next_u64() % max`. Irrelevant:
+  for rounds 1-50 the only RNG consumer is ±0-9px spawn jitter (noise either way).
+- **Speedup is ~2.3×, not the "26×" sim-only claim.** Cluster: Python ~30 → Rust
+  ~70-84 steps/s. Once the sim is cheap the **PPO update dominates** (the
+  bottleneck moved), so removing sim cost only buys ~2×. Supersedes the earlier
+  "numpy-vectorize the hot loop" plan — the real lever was Rust, but even that is
+  capped by the network update on slow CPUs.
+
+**HPC cluster.** 3× x86_64 nodes (i5-6500, 4 cores, 3500 MB schedulable RAM) + an
+ARM Pi controller/NFS head; env + repo on `/clusterfs` (shared).
+- **Scheduler packs by CORE, not memory** (`AllocMem=0` — memory isn't a
+  consumable resource), so `--mem` is cosmetic and the real limit is cores. Left
+  alone it crammed 4 jobs onto node01 (284 MB free, near-OOM) while node03 idled.
+- Fix: **`--cpus-per-task=2`** → 2 jobs/node → even **2/2/2** spread (healthy RAM
+  everywhere) + `OMP_NUM_THREADS=2` gives the PPO update a 2nd thread → **~84
+  steps/s** (~1.2×). RAM-bound ceiling = **6 concurrent**.
+- Built `btd_rs` via `maturin build -i <python>` + `pip install` (not
+  `maturin develop`, which needs an *activated* env — unavailable under `srun`).
+
+## Hyperparameter sweep — 12×1.5M, Rust (2026-07-26)
+
+Grid: `gamma {0.997, 0.999} × ent_coef {0.005, 0.01, 0.02} × lr {1e-4, 3e-4}`,
+seed 0, domain-randomized (easy/med/hard), eval-difficulty hard, 1.5M each, ~10 h.
+
+Eval = 30 held-out seeds, **easy**, `best_model` (round-reached mean):
+
+| idx | gamma | ent | lr | round |
+|---|---|---|---|---|
+| 001 | 0.997 | 0.005 | 3e-4 | **41.1** |
+| 007 | 0.999 | 0.005 | 3e-4 | **39.5** |
+| 008 | 0.999 | 0.01 | 1e-4 | 37.8 |
+| 003 | 0.997 | 0.01 | 3e-4 | 37.6 |
+| 002/005/009 | — | — | — | 26.0 (collapsed) |
+
+**All 12 went 0/30 on easy** (run13 wins 100%) → **undertrained**: 1.5M is too
+short (run13 needed ~3M), compounded by domain randomization + a hard-selected
+checkpoint. So the table ranks *learning speed*, not converged quality.
+
+Marginal effects (avg round over the other axes):
+
+| axis | best value | vs rest |
+|---|---|---|
+| **ent_coef** | **0.005 → 36.2** | vs 0.01=31.9 / 0.02=31.5 — clear |
+| lr | 3e-4 → 34.0 | vs 1e-4=32.3 — mild |
+| gamma | 0.999 → 33.9 | vs 0.997=32.4 — ~tie |
+
+**`ent_coef=0.005` is the one real signal** (+4.5 rounds) — confirms exploration
+was never the bottleneck (dart+bomb is the known strategy; lower entropy → more
+exploitation → faster progress). The three "stuck at 26" collapses (`min=max=26`)
+span unrelated hyperparameters → **seed-0 noise**, not bad configs (why
+single-seed rankings can't be trusted). Decision: carry **`ent 0.005 / lr 3e-4`**
+forward (gamma unresolved, keep both), **confirm at 3-5M × seeds {0,1,2}** — the
+sweep gives a direction, not a winner.
+
+## Freeplay: the round-37 wall returns, and warm-start (2026-07-25→26)
+
+Goal: play past round 50 (procedural 51-149) instead of winning at 50
+(`--freeplay`). A fresh-trained 10M easy-freeplay run **regressed** hard:
+
+| run | dies | money left | bombs | sells vs places |
+|---|---|---|---|---|
+| freeplay from scratch (10M) | ~37 | $5,000 | 3 | 2-9 vs 24-32 (churn minor) |
+| + **wide curriculum 8-120** (10M) | 34-37 | $577-1,359 | 3-4 | **49-86** vs 76-111 (churn 10×'d) |
+| **run13 warm-start, untuned** | **55-56** | $14-17k | — | none |
+
+**Root cause:** enabling freeplay moved the `+10 WIN_BONUS` from a *reachable*
+round 50 to an *unreachable* round 149, deleting the terminal pull that (in run13)
+taught the agent to spend its hoard and break the MOAB era. Left with only
+`+1/round`, it settles into a local optimum: coast to the first MOAB on saved
+cash, die at 37. Curriculum (8-22) sits *below* the wall, so no practice there.
+
+**Wide-curriculum experiment (8-120) backfired** (tested out of curiosity): high
+seeds hand money but **no towers** (`debug_set_round` only moves the counter), so
+round-100 starts are unwinnable-from-scratch → it flails, and thrashing gets baked
+in (churn 10×'d). Curriculum has a **feasibility ceiling ~round 45**; above it,
+seeds are noise that poisons the policy. Also surfaced a **latent bug**: the
+log-normalized `money` obs wasn't clipped, so deep-round hoards overflow the
+`[0,1]` Box — fixed with `min(…, 1.0)` in both encoders.
+
+**Path forward = warm-start.** run13 already beats MOABs, so loading it into a
+freeplay env reaches **round ~56 with zero fine-tuning** (48-49 towers, no churn);
+it just hoards ~$15k past round 50 because it was trained to *win* at 50, not push
+further — and that hoard-past-50 is exactly the learnable signal a fine-tune
+attacks. Added `--init-from` (warm-start + lower LR) and `--curriculum-min/max`
+flags. The real deep-frontier fix if needed later: **state-snapshot curriculum**
+(seed round + money + *tower loadout* from good play) — the only way curriculum
+reaches rounds a from-scratch build can't survive.
+
+Code (on `rust-sim`, some uncommitted): `--backend`, `--init-from`,
+`--curriculum-min/max` flags; money-obs clip; HPC `install.sh`/`bench` Rust build
++ `--backend` plumbing; sweep at 12×1.5M rust.
