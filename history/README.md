@@ -497,3 +497,51 @@ Investigation tooling (scratchpad, not committed): `analyze_fp.py` (cross-agent
 per-round snapshots), `probe_ceiling.py` (infinite-money builds), `probe_budget.py`
 (exact-income measurement + realistic builds), `probe_uncapped.py` + `probe_tack.py`
 (uncapped spam + leaked-rank diagnosis).
+
+## Money-bug, snapshot curriculum, escalating reward (2026-07-28)
+
+Analysis-heavy session (no training). Three findings + an overnight run.
+
+**The curriculum's money formula undercounts income ~6×.** `_accumulated_money`
+(the mid-game curriculum's starting cash, in both env files) sums ONLY round-end
+bonuses (`99+round`) and ignores **per-pop income** (+$1/pop pre-r51) — which is
+the *dominant* source. At round 51 it hands ~$6.9k vs the true ~$41k (measured with
+pops). So high-round fresh curriculum starts are **cash-starved** (~6-8 affordable
+towers → unwinnable): the "feasibility ceiling ~r45" is mostly this bug, NOT a
+structural limit. Fixing the formula would make higher empty starts winnable *in
+principle* — but the agent would then have to learn an unnatural "instant 60-tower
+build in one phase," which is why the snapshot curriculum (hand it the loadout) is
+cleaner. Logged as memory `curriculum-money-bug`.
+
+**Snapshot curriculum = the real frontier lever (designed, not built).** Bank full
+game states from good play (round + money + lives + **tower loadout with upgrades**)
+and restart a fraction of training episodes from them, so the agent practices
+*extending* a real defense instead of building from scratch at a high round. It's
+the single-player substitute for self-play's automatic curriculum: iterate
+(capture → train → re-capture from the improved policy) and the frontier crawls
+forward. Injects **no strategy** — states are self-generated — so the agent still
+discovers the tactics. Needs a sim state dump/load (both backends), a snapshot
+bank, and an env `snapshot_p` reset path. Deferred (too big to build + run
+unsupervised in one night). Family: Go-Explore, reverse-curriculum generation,
+backplay. Honest ceiling: diminishing returns ~r65-75, past which success depends
+on the *whole trajectory* (the foundation), which no local start-state trick fixes —
+that needs AlphaZero-style search + a learned value function.
+
+**Escalating per-round reward (implemented).** New `--frontier-bonus b`: adds
+`b*(round-50)` to the clear reward past round 50 (train-only; eval stays honest at
+0), so deeper frontier rounds are worth progressively more. Replaces the dead
+freeplay terminal (WIN_BONUS at unreachable r149) with a dense, reachable pull.
+Fixes **credit assignment, NOT exploration** — makes depth desirable, not reachable
+— so it's *complementary* to the snapshot curriculum, not a substitute. Caveats: it
+fights the discount (needs growth to outpace γ^t — fine at γ=0.999), can induce
+risk-seeking, and is non-potential-based shaping (can shift the optimum, here toward
+depth, which is aligned). Threaded through both env backends + `train.py` like the
+milestone flags.
+
+**Overnight run** (`agent/models/fp_frontier256/`, Mac, 10M, rust): fresh
+from-scratch (the 64→256 cap changed obs/action shapes, so NO warm-start from run13
+etc.), easy freeplay, winnable curriculum 8-22, `ent 0.005 / lr 3e-4 / gamma 0.999`
+(run13 + sweep), `--frontier-bonus 0.3`, beacons live. Tests whether cap-raise +
+frontier-pull move the old ~58 wall. Expect possible undertraining (fresh 256-cap
+freeplay in 10M is ambitious — run13 needed ~3M just for base round-50 at the 64
+cap); best_model saved on honest eval.
