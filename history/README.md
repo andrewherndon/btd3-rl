@@ -545,3 +545,38 @@ etc.), easy freeplay, winnable curriculum 8-22, `ent 0.005 / lr 3e-4 / gamma 0.9
 frontier-pull move the old ~58 wall. Expect possible undertraining (fresh 256-cap
 freeplay in 10M is ambitious — run13 needed ~3M just for base round-50 at the 64
 cap); best_model saved on honest eval.
+
+## Frontier run result + board-state probes + fidelity audit (2026-07-28)
+
+**fp_frontier256 (10M, ~5.7h) fixed every behavioral problem but did NOT break the
+wall.** Inspected: builds to the cap (**107 towers**, was 52-64), spends nearly all
+money ($6 cash), churn nearly gone (sell:place **0.12** vs old 0.29-0.39). Hoarding /
+under-building / churn — all solved by the frontier pull + raised cap. But it still
+**dies round 57-58, 0 win.** The eval curves show it: `mean_reward` plateaus at ~44
+(≈ round 55, since reward ≈ rounds−11 from the −0.1×100 life penalty + −1 loss) from
+~3M on, while `ep_len_mean` keeps climbing to ~270 — the signature of *building more,
+going no further* (DPS saturation). (`rollout/` = training env, contaminated by
+curriculum + frontier bonus; `eval/` = honest deterministic full games — trust eval.)
+
+**Board-state probes** (`probe_boardstate.py` — capture the agent's real pre-death
+board, perturb it; rebuild reproduced the r57 death exactly):
+- **Iso-value:** rebuild the board's **$48,961** into ANY composition (dart+bomb
+  maxed / +supers / +25 beacons / tack-bulk+beacon), optimal spread, play from r57 →
+  **every one dies at r57.** The *budget*, not the composition, is the ceiling.
+- **Marginal:** +$40k of upgrades on the existing board → only **+1 round (58)**;
+  +10-20 drums-beacons → **+1 round**. Saturated — more money barely moves it.
+- So ~57 is a genuine **economic** ceiling at the ~$49k freeplay-easy budget,
+  invariant to composition. **NB: within the money system, NOTHING beat r57.** The
+  earlier r60+ builds (super_max r66, dart+bomb r68) were **infinite-money** probes
+  costing ~$100k-900k — far beyond any reachable budget.
+
+**Fidelity audit** (sim vs `Decompiled-Limited/scripts`): checked ~11 mechanics —
+procedural rounds 51+, bloon speed/hits/children/leak, all tower base stats, tack
+upgrades, beacon drums, bulletScale→hitbox, economy — **all EXACT, no mismatches**
+(only approximation: tack = 8 unit-pierce shards vs AS single ring-bullet pierceMax=8,
+both cap 8/volley). So the ~r57 wall is **genuine BTD3**, not a sim bug — the "our
+frontier is harsher" hypothesis was wrong. Real-game r74/121 = more money (survived
+longer → bigger board, ~$94k at r74 vs ~$49k at r57) **+ expert placement exploiting
+track-3 path overlaps** (one tack hitting several path segments), which the flat
+`Discrete` action space + spread heuristics don't capture. The untapped lever is
+**placement quality**, not sim accuracy. Logged as memory `sim-fidelity-audit`.
