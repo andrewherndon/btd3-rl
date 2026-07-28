@@ -377,3 +377,123 @@ reaches rounds a from-scratch build can't survive.
 Code (on `rust-sim`, some uncommitted): `--backend`, `--init-from`,
 `--curriculum-min/max` flags; money-obs clip; HPC `install.sh`/`bench` Rust build
 + `--backend` plumbing; sweep at 12×1.5M rust.
+
+## The round-58 freeplay "wall" was MAX_TOWERS=64 (2026-07-27)
+
+The 6-config 5M easy-freeplay wave (control / gamma9995 / scratch / milestone50 /
+milestone10 / chain) all converged to **round 55-58, 0/30 wins** with near-zero
+variance across gamma, milestone bonuses, warm-start, and from-scratch. That
+flatness screamed "structural, not RL-tunable." Chasing *why* took **two wrong
+turns** before the real cause — a self-imposed artifact — surfaced. Logged in full
+because the failures are the lesson.
+
+### What the cross-agent replay analysis showed (this part was right)
+
+Replayed all six `best_model`s deterministically over 5 seeds, snapshotting
+per-round tower count / money / composition / churn. Real patterns:
+- **Composition converged bomb-heavy** everywhere (21-27 bombs, dart second, tack
+  minor) regardless of the lever.
+- **Two opposite failure modes, same wall.** *Hoarders* (control $2.8k, scratch up
+  to **$17k**, milestone50) died ~57-58 sitting on cash with ~56 towers; *spenders*
+  (gamma9995 $82, chain $62) spent out to **63-64 towers** and died at the *same*
+  57-58.
+- **Churn didn't predict the wall** — churniest (chain, sell:place 0.39) and
+  cleanest (milestone50, 0.22) both landed at 57.8.
+
+The spenders hitting 64 towers and dying alongside the 52-tower hoarders looked
+decisive: not hoarding, not the slot count (they reached 64 and still died), not
+tack-spam (bomb-heavy won). `rounds.py` confirmed the procedural threat ramps
+*smoothly* (batches `R-43`, ceramics `R-42`/batch, +`(R-50)/15` speed) — **no
+round-58 spike**, unlike the old discrete round-37 first-MOAB. Working frame at
+this point: a smooth threat curve crossing a flat DPS ceiling. (The
+DPS-saturation-plateau math was correct — the *height* of the plateau was the part
+I got wrong, see below.)
+
+### Wrong turn #1 — "it's composition lock-in" (infinite-money probe)
+
+Hand-built spread, fully-upgraded **64-tower** boards with **unlimited money + full
+lives**, played 51→66:
+
+| build | result |
+|---|---|
+| super_max (64 maxed supers) | **survives r66, −0 lives** |
+| agent_learned mix | 63-66 |
+| bomb_max | dies 52-53 (blacks are bomb-immune) |
+| tack_max | **dies r51, −100** |
+
+Concluded: **a 64-tower build DOES beat r60 (super-heavy), so 58 is composition
+lock-in, not a ceiling — RL is stuck in a local optimum.** Half-right (super-heavy
+is strong), but the `tack_max` r51 death was a red flag I waved off instead of
+chasing.
+
+### Wrong turn #2 — "solved at 58, dart+bomb is budget-optimal" (budget probe)
+
+Measured the **exact** lifetime budget of a clearing player (free-build a
+survivable defense, reset to starting cash, play 1→N spending nothing → money held
+= accrued income; build-path-independent because clearing pops ~all bloons; +$1/pop
+pre-51 then 1/3, plus the 99+round bonus): **$41k entering r51, $49.6k entering
+r57.** Funded realistic **64-tower** builds at $49.6k:
+
+| build | dies (mean) |
+|---|---|
+| dart+bomb (fully maxed, 196 upgrades) | **57.7** |
+| tack-bulk / learned / spike / boomerang | 55-56 |
+| super-heavy / tack+super | **51** (budget can't upgrade them) |
+
+Every pricier tower stole the upgrade budget; dart+bomb was the cheapest
+immunity-covering pair to fully max, and it matched the agents' 57-58 *exactly*.
+**Concluded: freeplay-easy is SOLVED at ~58, dart+bomb is the global budget
+optimum, tacks are the worst tower, the wall is economic — declare solved, stop
+training.** Confidently, comprehensively wrong.
+
+### The correction — real-game screenshots blew it up
+
+User produced two real BTD3 screenshots: **round 74 easy with ~100+ tack shooters**
+(+ a few leadbreak rockets), and **round 121 (track 5) with ~200 supers/tacks/ice**.
+The game is trivially pushable past 58. That forced the experiment I'd skipped:
+**remove the tower cap.** `MAX_TOWERS=64` is an *env/mask* limit — the sim's
+`place_tower` has **no count cap**. Uncapped (150 towers, spread):
+
+| composition | @64 cap | uncapped |
+|---|---|---|
+| dart+bomb | 58 | **68** |
+| super | 66 | **70+** |
+| tack-bulk + bomb/super | 55 | **72+, zero leaks** |
+
+And the `tack_max` r51 death, finally diagnosed: **pure tacks leak *only leads*** (6
+of them; `leadbreak=False`, and a lead's escape costs 19 lives → 6 ≈ game over).
+Tacks pop everything else perfectly — strong cheap AoE, **not** the worst tower. The
+"tacks worst" ranking was a *double* artifact: the 64-cap **and** testing tacks with
+no leadbreak support. With a few bombs, uncapped tack-bulk reaches 72+, exactly like
+the screenshots.
+
+### Root cause + the two sim gaps
+
+The round-58 wall was **never RL**: it was **`MAX_TOWERS=64`**, an env representation
+cap the agent literally cannot exceed, pinning it to ~¼ of the real game's tower
+count. Every 5M sweep config was fighting a slot limit, not a policy. Also surfaced
+(user's hunch, correct): **beacon drums speed-buff is unimplemented** — `game.py:470`
+is a bare comment, so `beacon_rate_active` never flips and `BEACON_RATE_FACTOR=0.85`
+is dead code; beacons give only a ~9.5% range nudge, no DPS multiplier.
+
+The lesson is run13's, self-inflicted: **measure the actual thing.** I measured an
+*artifact* (capped at 64, pure compositions) and over-concluded **twice** —
+"composition lock-in," then "solved at 58." Real-world evidence, not another probe,
+was the corrective; the `tack_max`-dies-r51 anomaly was the tell I ignored both
+times. The saturation/DPS-plateau reasoning was sound — I just never noticed the
+plateau *height* was set by a cap I'd imposed on myself.
+
+Decisions:
+- **Raise `MAX_TOWERS` 64 → 256** (near real-game scale). Grows the obs tower-table
+  4× and adds ~576 actions (+6%; PLACE's 9,600 cells dominate so the space barely
+  moves), lengthens episodes, and — changing obs/action shapes — forces a **fresh
+  training run** (no warm-start from 64-slot models).
+- **Implement beacon drums** (wire `beacon2` → `beacon_rate_active`), restoring the
+  dead rate buff. In-scope; only monkey-storm beacon3/4 stay deferred.
+- Re-train easy freeplay under the raised cap (+ beacons); expect the agent to push
+  toward the real game's 70+ instead of stalling at 58.
+
+Investigation tooling (scratchpad, not committed): `analyze_fp.py` (cross-agent
+per-round snapshots), `probe_ceiling.py` (infinite-money builds), `probe_budget.py`
+(exact-income measurement + realistic builds), `probe_uncapped.py` + `probe_tack.py`
+(uncapped spam + leaked-rank diagnosis).
