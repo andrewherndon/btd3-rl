@@ -25,7 +25,8 @@ from envs.bloons_env_rs import BloonsEnv as RsBloonsEnv
 def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float = 0.0,
              difficulty_choices: tuple[str, ...] = (), freeplay: bool = False,
              backend: str = "python", curriculum_min: int = 8, curriculum_max: int = 22,
-             milestone_bonus: float = 0.0, milestone_every: int = 0):
+             milestone_bonus: float = 0.0, milestone_every: int = 0,
+             frontier_bonus: float = 0.0):
     """Factory for one Monitor-wrapped env. Each reset draws a fresh sim seed;
     Monitor records episode reward/length for logging. Training aids (all off for
     eval): `curriculum_p` starts some episodes mid-game at a round drawn uniformly
@@ -42,7 +43,8 @@ def make_env(difficulty: str, curriculum_p: float = 0.0, diversity_bonus: float 
                               curriculum_p=curriculum_p, diversity_bonus=diversity_bonus,
                               difficulty_choices=difficulty_choices,
                               curriculum_min=curriculum_min, curriculum_max=curriculum_max,
-                              milestone_bonus=milestone_bonus, milestone_every=milestone_every))
+                              milestone_bonus=milestone_bonus, milestone_every=milestone_every,
+                              frontier_bonus=frontier_bonus))
     return _init
 
 
@@ -104,6 +106,10 @@ def main() -> None:
     # reachable "pull" that freeplay deletes by moving the win to round 149.
     p.add_argument("--milestone-bonus", type=float, default=0.0)
     p.add_argument("--milestone-every", type=int, default=0)
+    # Escalating freeplay reward: +b*(round-50) per round cleared past 50 (train
+    # only; eval honest). Replaces the dead terminal (WIN_BONUS at r149) with a
+    # dense, reachable pull toward the frontier. See history/README.md.
+    p.add_argument("--frontier-bonus", type=float, default=0.0)
     # One-time reward for first placing each tower type. Default OFF: dart+bomb
     # already wins the game, so diversity was a non-problem; kept as a knob only.
     p.add_argument("--diversity-bonus", type=float, default=0.0)
@@ -132,7 +138,8 @@ def main() -> None:
                                  curriculum_min=args.curriculum_min,
                                  curriculum_max=args.curriculum_max,
                                  milestone_bonus=args.milestone_bonus,
-                                 milestone_every=args.milestone_every)
+                                 milestone_every=args.milestone_every,
+                                 frontier_bonus=args.frontier_bonus)
                         for _ in range(args.n_envs)])
     # Separate eval env: fixed difficulty, no scaffolds/randomization, so best_model
     # is selected on honest full round-1 games at one difficulty.

@@ -75,6 +75,7 @@ class BloonsEnv(gym.Env):
         difficulty_choices: tuple[str, ...] = (),
         milestone_bonus: float = 0.0,
         milestone_every: int = 0,
+        frontier_bonus: float = 0.0,
     ) -> None:
         super().__init__()
         # Template config; the per-episode seed is filled in at reset() for
@@ -89,6 +90,7 @@ class BloonsEnv(gym.Env):
         self.diversity_bonus = diversity_bonus
         self.milestone_bonus = milestone_bonus
         self.milestone_every = milestone_every
+        self.frontier_bonus = frontier_bonus
         # If non-empty, each episode samples a difficulty from this pool (domain
         # randomization) so one policy learns to adapt to the economy (prices /
         # lives, which are in the obs). Empty = fixed to the template difficulty.
@@ -194,6 +196,7 @@ class BloonsEnv(gym.Env):
             return reward + LOSS_PENALTY, True          # lost
         reward += ROUND_CLEAR_BONUS                     # survived the round
         reward += self._milestone_reward()              # freeplay stepping-stone
+        reward += self._frontier_reward()               # escalating deep-round pull
         if self.sim.won:
             return reward + WIN_BONUS, True             # won the game
         return reward, False
@@ -208,6 +211,16 @@ class BloonsEnv(gym.Env):
            (not self.milestone_every and r == 50):
             return self.milestone_bonus
         return 0.0
+
+    def _frontier_reward(self) -> float:
+        """Escalating freeplay pull: +frontier_bonus per round survived past 50,
+        so deeper frontier rounds are worth progressively more. Replaces the dead
+        terminal (WIN_BONUS at unreachable round 149) with a dense, reachable
+        gradient toward depth. Train-only (eval uses frontier_bonus=0). Fixes
+        credit assignment, not exploration — see history/README.md."""
+        if not self._cfg_template.freeplay or self.frontier_bonus <= 0.0:
+            return 0.0
+        return self.frontier_bonus * max(0, self.sim.round - 50)
 
     def _info(self) -> dict[str, Any]:
         return {

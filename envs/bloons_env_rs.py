@@ -55,6 +55,7 @@ class BloonsEnv(gym.Env):
         difficulty_choices: tuple[str, ...] = (),
         milestone_bonus: float = 0.0,
         milestone_every: int = 0,
+        frontier_bonus: float = 0.0,
     ) -> None:
         super().__init__()
         self._cfg_template = config or None  # We'll construct RsConfig from this
@@ -77,6 +78,7 @@ class BloonsEnv(gym.Env):
         self.difficulty_choices = difficulty_choices
         self.milestone_bonus = milestone_bonus
         self.milestone_every = milestone_every
+        self.frontier_bonus = frontier_bonus
 
         self.observation_space = make_observation_space()
         self.action_space = spaces.Discrete(A.N_ACTIONS)
@@ -170,6 +172,7 @@ class BloonsEnv(gym.Env):
             return reward + LOSS_PENALTY, True
         reward += ROUND_CLEAR_BONUS
         reward += self._milestone_reward()
+        reward += self._frontier_reward()
         if self.sim.won:
             return reward + WIN_BONUS, True
         return reward, False
@@ -184,6 +187,14 @@ class BloonsEnv(gym.Env):
            (not self.milestone_every and r == 50):
             return self.milestone_bonus
         return 0.0
+
+    def _frontier_reward(self) -> float:
+        """Escalating freeplay pull: +frontier_bonus per round survived past 50.
+        Replaces the dead terminal (WIN_BONUS at round 149) with a dense,
+        reachable gradient toward depth. Train-only (eval uses 0)."""
+        if not self._freeplay or self.frontier_bonus <= 0.0:
+            return 0.0
+        return self.frontier_bonus * max(0, self.sim.round - 50)
 
     def _info(self) -> dict[str, Any]:
         return {
