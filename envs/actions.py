@@ -31,21 +31,25 @@ GRID_COLS = 640 // CELL_SIZE          # 40
 GRID_ROWS = 480 // CELL_SIZE          # 30
 N_CELLS = GRID_COLS * GRID_ROWS       # 1200
 
-# Cap on towers the env represents (obs rows and upgrade/sell slots). Set well
-# above what actually binds in play (agents reached ~33) so it removes the
-# "towers past the cap are invisible/unmanageable" blind spot WITHOUT imposing a
-# tower-count strategy. A placement guard in mask.py enforces it as a safety net.
-MAX_TOWERS = 64
+# Cap on towers the env represents (obs rows and upgrade/sell slots). Raised
+# 64 -> 256 (2026-07-27): the real game is uncapped and easy freeplay needs
+# 100-200+ towers to push past round ~58 — a 64-tower defense's DPS plateaus
+# exactly there, which was the true cause of the "round-58 wall" (see
+# history/README.md). 256 covers near-real-game scale without imposing a
+# tower-count strategy; a placement guard in mask.py enforces it as a safety net.
+# NOTE: changing this changes obs/action shapes, so models are NOT cross-loadable
+# across values (a fresh training run is required).
+MAX_TOWERS = 256
 
 # --- flat index block boundaries ------------------------------------------
 START_ROUND = 0
 PLACE_OFF = 1                                   # 1
 PLACE_END = PLACE_OFF + N_TYPES * N_CELLS       # 9601 (exclusive)
 UPGRADE_OFF = PLACE_END                         # 9601
-UPGRADE_END = UPGRADE_OFF + MAX_TOWERS * 2      # 9641 (exclusive)
-SELL_OFF = UPGRADE_END                          # 9641
-SELL_END = SELL_OFF + MAX_TOWERS                # 9661 (exclusive)
-N_ACTIONS = SELL_END                            # 9661
+UPGRADE_END = UPGRADE_OFF + MAX_TOWERS * 2      # 10113 (exclusive)
+SELL_OFF = UPGRADE_END                          # 10113
+SELL_END = SELL_OFF + MAX_TOWERS                # 10369 (exclusive)
+N_ACTIONS = SELL_END                            # 10369
 
 
 class Kind(IntEnum):

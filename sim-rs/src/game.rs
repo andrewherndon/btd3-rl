@@ -515,13 +515,14 @@ impl BloonsSim {
                 t.beacon_rate_active = false;
             }
         }
-        // Collect beacon data first to avoid borrow conflicts.
-        let beacon_data: Vec<(f64, f64, f64)> = self.towers.iter()
+        // Collect beacon data first to avoid borrow conflicts. `drums` =
+        // upgrade2, which also grants the attack-rate buff.
+        let beacon_data: Vec<(f64, f64, f64, bool)> = self.towers.iter()
             .filter(|t| t.type_ == TowerType::Beacon)
-            .map(|t| (t.x, t.y, t.attack_radius))
+            .map(|t| (t.x, t.y, t.attack_radius, t.upgrade2))
             .collect();
 
-        for (bx, by, radius) in &beacon_data {
+        for (bx, by, radius, drums) in &beacon_data {
             let ar_sq = radius * radius;
             for t in &mut self.towers {
                 if t.type_ == TowerType::Beacon { continue; }
@@ -529,6 +530,10 @@ impl BloonsSim {
                 let dy = t.y - by;
                 if dx * dx + dy * dy < ar_sq {
                     t.beacon_radius_active = true;
+                    // Drums (beacon2): also grant the rate buff (non-stacking).
+                    if *drums {
+                        t.beacon_rate_active = true;
+                    }
                 }
             }
         }

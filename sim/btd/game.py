@@ -467,7 +467,11 @@ class BloonsSim:
                 dy = t.y - beacon.y
                 if dx * dx + dy * dy < ar_sq:
                     t.beacon_radius_active = True
-                    # Drums upgrade (deferred): also flip beacon_rate_active.
+                    # Drums upgrade (beacon2): also grant the attack-rate buff
+                    # (BEACON_RATE_FACTOR). Non-stacking — one drum-beacon in
+                    # range is enough. (Storm beacon3/4 remain deferred.)
+                    if beacon.upgrade2:
+                        t.beacon_rate_active = True
 
     def _acquire_target(self, t: Tower) -> Optional[Bloon]:
         # AS GetTarget: scans bloon list, dist² < range², picks by progress.
