@@ -580,3 +580,45 @@ longer → bigger board, ~$94k at r74 vs ~$49k at r57) **+ expert placement expl
 track-3 path overlaps** (one tack hitting several path segments), which the flat
 `Discrete` action space + spread heuristics don't capture. The untapped lever is
 **placement quality**, not sim accuracy. Logged as memory `sim-fidelity-audit`.
+
+## Coffin nail: composition sweep + EV analysis (2026-07-28)
+
+Scrutiny pass (user: "don't take anything for gospel"). Two corrections + a
+definitive sweep.
+
+**Correction 1 — placement barely matters on track 3.** Coverage-aware placement
+(stack towers on path-overlap cells) beat greedy-spread by only **+0.5 rounds**
+(58.3 vs 57.8, both max 59). Track 3 is a modest map: 2857px, 1 branch, only
+23/488 cells with >1.5× median path-coverage. So my earlier "expert placement is
+the untapped lever" claim was wrong — at ~145 cheap towers you fill most cells and
+placement order washes out.
+
+**Correction 2 — the r74/r100 evidence is all OTHER maps + out-of-scope items.**
+We never had a single data point on *track-3, tower-only*. Can't claim "BTD3 caps
+at 58", only "track-3 tower-only at budget caps at 58".
+
+**The sweep (nail):** 22 arrangements × 4 seeds, $48k, cold start r55,
+coverage-placed, fully upgraded. **Nothing exceeded round 58.** Winners were the
+dart+bomb core (dart+bomb / dart+bomb+tack / spike+dart+bomb = mean 58.0). Every
+"clever" support idea did *worse*, for faithful-mechanic reasons: **beacons**
+net-negative (a beacon is a DPS tower you didn't place; +15% buff < the lost
+firepower), **ice** backfires (frozen bloons are unhittable by non-icebreak towers
+— darts/tacks skip them; ice_bomb dies at 55), **supers** unaffordable (pure_super
+= 14 towers at $48k, dies 55), **pure anything** dies at 55 (no single type covers
+the black/lead immunity split).
+
+**EV/DPS analysis from the code (converges with the sweep):** raw DPS-per-dollar
+(maxed) = tack **0.0100** > bomb 0.0088 > super 0.0086 > spike 0.0058 > dart 0.0053
+> boom 0.0048. Tack wins raw DPS/$ (8-shard pierce), BUT three corrections flip it
+to EV: (1) range→coverage (tack 90 vs bomb 140 vs super 240 — bomb becomes top
+affordable, super would dominate if you could afford >~3); (2) immunity — only bomb
+has leadbreak+icebreak (hits everything), so it's mandatory; (3) high-HP frontier
+bloons (ceramic 8, MOAB 130) blunt pierce, favoring bomb's AoE+frags and super's
+concentrated 120 hits/sec. Conclusion: **bomb-anchored + tack/dart cheap filler**,
+supers a budget trap, beacon/ice EV-negative. First-principles and brute-force
+agree exactly — and it's what the agent found. **~58 is settled for track-3
+tower-only; the agent plays optimally to it.**
+
+Probes (scratchpad): `probe_placement.py` (geometry + spread-vs-coverage),
+`probe_sweep.py` (22-composition sweep), `probe_budget_check.py` (income +
+seed-variance).
